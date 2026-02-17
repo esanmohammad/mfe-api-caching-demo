@@ -7,18 +7,21 @@ import {
   createApi as rtkCreateApi,
   type BaseQueryFn,
   type EndpointDefinitions,
-} from '@reduxjs/toolkit/query/react';
+} from "@reduxjs/toolkit/query/react";
 import {
   registerApi,
   getRegisteredApi,
   isApiRegistered,
-} from './core/globalRegistry';
-import { detectMfeName } from './core/mfeContext';
-import { enhanceBaseQuery, type EnhancedBaseQueryOptions } from './enhancers/baseQueryEnhancer';
-import { createEnhancedSerializer } from './enhancers/serializerEnhancer';
-import { createCacheLifecycleMiddleware } from './middleware/cacheLifecycleMiddleware';
-import { createUrlInvalidationMiddleware } from './middleware/urlInvalidationMiddleware';
-import { configureStore, type EnhancedStore } from '@reduxjs/toolkit';
+} from "./core/globalRegistry";
+import { detectMfeName } from "./core/mfeContext";
+import {
+  enhanceBaseQuery,
+  type EnhancedBaseQueryOptions,
+} from "./enhancers/baseQueryEnhancer";
+import { createEnhancedSerializer } from "./enhancers/serializerEnhancer";
+import { createCacheLifecycleMiddleware } from "./middleware/cacheLifecycleMiddleware";
+import { createUrlInvalidationMiddleware } from "./middleware/urlInvalidationMiddleware";
+import { configureStore, type EnhancedStore } from "@reduxjs/toolkit";
 
 /**
  * Extended options for MFE-aware createApi
@@ -68,14 +71,18 @@ export interface MfeCreateApiOptions {
 export function createApi<
   BaseQuery extends BaseQueryFn,
   Definitions extends EndpointDefinitions,
-  ReducerPath extends string = 'api',
-  TagTypes extends string = never
+  ReducerPath extends string = "api",
+  TagTypes extends string = never,
 >(
-  options: Parameters<typeof rtkCreateApi<BaseQuery, Definitions, ReducerPath, TagTypes>>[0] &
-    MfeCreateApiOptions
-): ReturnType<typeof rtkCreateApi<BaseQuery, Definitions, ReducerPath, TagTypes>> {
+  options: Parameters<
+    typeof rtkCreateApi<BaseQuery, Definitions, ReducerPath, TagTypes>
+  >[0] &
+    MfeCreateApiOptions,
+): ReturnType<
+  typeof rtkCreateApi<BaseQuery, Definitions, ReducerPath, TagTypes>
+> {
   const {
-    reducerPath = 'api' as ReducerPath,
+    reducerPath = "api" as ReducerPath,
     baseQuery,
     mfeOptions,
     serializeQueryArgs,
@@ -91,7 +98,7 @@ export function createApi<
     const existingApi = getRegisteredApi(reducerPath);
     if (existingApi) {
       console.debug(
-        `[@dtsl/rtk-query] Found existing API instance: ${reducerPath}, injecting endpoints`
+        `[@dtsl/rtk-query] Found existing API instance: ${reducerPath}, injecting endpoints`,
       );
 
       // Inject endpoints from this MFE into the existing API
@@ -115,7 +122,7 @@ export function createApi<
         enableCoalescing: mfeOptions?.enableCoalescing ?? true,
         enableTracking: mfeOptions?.enableTracking ?? true,
         addMfeHeader: mfeOptions?.addMfeHeader ?? true,
-        mfeHeaderName: mfeOptions?.mfeHeaderName ?? 'X-MFE-Source',
+        mfeHeaderName: mfeOptions?.mfeHeaderName ?? "X-MFE-Source",
         enableUrlInvalidation: mfeOptions?.enableUrlInvalidation ?? true,
         reducerPath,
       });
@@ -145,8 +152,11 @@ export function createApi<
     // The actual store will be replaced when Provider mounts
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const apiAny = api as any;
-    const cacheLifecycleMiddleware = createCacheLifecycleMiddleware(reducerPath);
-    const urlInvalidationMiddleware = createUrlInvalidationMiddleware(reducerPath);
+    const cacheLifecycleMiddleware =
+      createCacheLifecycleMiddleware(reducerPath);
+    const urlInvalidationMiddleware =
+      createUrlInvalidationMiddleware(reducerPath);
+
     const minimalStore = configureStore({
       reducer: {
         [reducerPath]: apiAny.reducer,
@@ -158,16 +168,11 @@ export function createApi<
           .concat(urlInvalidationMiddleware),
     });
 
-    registerApi(
-      reducerPath,
-      apiAny,
-      minimalStore as EnhancedStore,
-      mfeName
-    );
+    registerApi(reducerPath, apiAny, minimalStore as EnhancedStore, mfeName);
   }
 
   return api;
 }
 
 // Re-export the original createApi for edge cases
-export { createApi as originalCreateApi } from '@reduxjs/toolkit/query/react';
+export { createApi as originalCreateApi } from "@reduxjs/toolkit/query/react";
