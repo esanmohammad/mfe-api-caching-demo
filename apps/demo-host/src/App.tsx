@@ -15,7 +15,6 @@ import React, { Suspense, useState, useEffect } from "react";
 const DemoListDelete = React.lazy(() => import("demoListDelete/App"));
 const DemoListAdd = React.lazy(() => import("demoListAdd/App"));
 const DemoListUpdate = React.lazy(() => import("demoListUpdate/App"));
-const DemoStats = React.lazy(() => import("demoStats/App"));
 
 function LoadingSpinner({ name, color }: { name: string; color: string }) {
   return (
@@ -107,64 +106,10 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold">@dtsl/rtk-query Demo</h1>
           <p className="text-indigo-200 mt-1">
-            4 MFEs sharing one slow API - Watch the magic of request coalescing!
+            3 MFEs sharing one slow API - Watch the magic of request coalescing!
           </p>
         </div>
       </header>
-
-      {/* Stats Bar */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div>
-                <span className="text-gray-500 text-sm">API Requests:</span>
-                <span className="ml-2 text-3xl font-bold text-indigo-600">
-                  {apiStats?.totalRequests ?? "?"}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-500 text-sm">Time Elapsed:</span>
-                <span className="ml-2 text-xl font-mono text-gray-700">
-                  {elapsed}s
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={resetCounter}
-              className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition text-sm font-medium"
-            >
-              Reset Counter
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Explanation */}
-      <div className="max-w-7xl mx-auto px-4 py-4">
-        <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-lg p-4">
-          <h2 className="text-amber-800 font-semibold mb-2">
-            How to Test Coalescing
-          </h2>
-          <ol className="text-amber-700 text-sm space-y-1 list-decimal list-inside">
-            <li>
-              <strong>Reset the counter</strong> using the button above
-            </li>
-            <li>
-              <strong>Refresh the page</strong> - all 4 MFEs will request items
-              simultaneously
-            </li>
-            <li>
-              <strong>Watch the counter</strong> - without coalescing it would
-              be 4+, with coalescing it's just 1-2!
-            </li>
-            <li>
-              <strong>Try mutations</strong> - Delete/Add/Update will refresh
-              data in ALL MFEs
-            </li>
-          </ol>
-        </div>
-      </div>
 
       {/* MFE Grid */}
       <main className="max-w-7xl mx-auto px-4 py-4">
@@ -195,22 +140,13 @@ function App() {
               <DemoListUpdate />
             </Suspense>
           </ErrorBoundary>
-
-          {/* Stats MFE */}
-          <ErrorBoundary fallback={<MfeErrorFallback name="Stats MFE" />}>
-            <Suspense
-              fallback={<LoadingSpinner name="Stats MFE" color="purple" />}
-            >
-              <DemoStats />
-            </Suspense>
-          </ErrorBoundary>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="max-w-7xl mx-auto px-4 py-6 text-center text-gray-500 text-sm">
         <p>
-          All 4 MFEs use the same{" "}
+          All 3 MFEs use the same{" "}
           <code className="bg-gray-200 px-1 rounded">
             reducerPath: 'demoApi'
           </code>{" "}
