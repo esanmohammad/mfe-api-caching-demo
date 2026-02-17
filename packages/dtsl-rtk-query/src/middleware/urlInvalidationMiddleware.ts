@@ -5,8 +5,9 @@
  * based on URL pattern matching rather than manual tags.
  */
 
-import type { Middleware, UnknownAction, Dispatch } from '@reduxjs/toolkit';
-import { urlInvalidationManager } from '../invalidation/urlInvalidationManager';
+import type { Middleware, UnknownAction } from "@reduxjs/toolkit";
+import { urlInvalidationManager } from "../invalidation/urlInvalidationManager";
+import { getRegisteredApi } from "../core/globalRegistry";
 
 interface MutationAction extends UnknownAction {
   payload?: unknown;
@@ -17,7 +18,7 @@ interface MutationAction extends UnknownAction {
       originalArgs?: unknown;
     };
     requestId?: string;
-    requestStatus?: 'pending' | 'fulfilled' | 'rejected';
+    requestStatus?: "pending" | "fulfilled" | "rejected";
     baseQueryMeta?: {
       request?: Request;
       response?: Response;
@@ -31,15 +32,33 @@ interface ApiState {
 }
 
 /**
- * Extract URL from mutation args
+ * Extract URL from mutation action
+ * Priority: 1) baseQueryMeta.request.url, 2) originalArgs.url, 3) originalArgs as string
  */
-function extractUrl(args: unknown): string | null {
-  if (typeof args === 'string') {
+function extractUrlFromAction(action: MutationAction): string | null {
+  const meta = action.meta;
+
+  // First, try to get from the actual request (most reliable)
+  const requestUrl = meta?.baseQueryMeta?.request?.url;
+  if (requestUrl) {
+    try {
+      // Parse URL to get just the pathname
+      const url = new URL(requestUrl);
+      return url.pathname;
+    } catch {
+      // If it's not a full URL, use as-is
+      return requestUrl;
+    }
+  }
+
+  // Fallback: check originalArgs
+  const args = meta?.arg?.originalArgs;
+  if (typeof args === "string") {
     return args;
   }
-  if (typeof args === 'object' && args !== null) {
+  if (typeof args === "object" && args !== null) {
     const obj = args as Record<string, unknown>;
-    if (typeof obj.url === 'string') {
+    if (typeof obj.url === "string") {
       return obj.url;
     }
   }
@@ -47,66 +66,73 @@ function extractUrl(args: unknown): string | null {
 }
 
 /**
- * Extract HTTP method from mutation args
+ * Extract HTTP method from mutation action
+ * Priority: 1) baseQueryMeta.request.method, 2) originalArgs.method, 3) default POST
  */
-function extractMethod(args: unknown): string {
-  if (typeof args === 'object' && args !== null) {
+function extractMethodFromAction(action: MutationAction): string {
+  const meta = action.meta;
+
+  // First, try to get from the actual request (most reliable)
+  const requestMethod = meta?.baseQueryMeta?.request?.method;
+  if (requestMethod) {
+    return requestMethod.toUpperCase();
+  }
+
+  // Fallback: check originalArgs
+  const args = meta?.arg?.originalArgs;
+  if (typeof args === "object" && args !== null) {
     const obj = args as Record<string, unknown>;
-    if (typeof obj.method === 'string') {
+    if (typeof obj.method === "string") {
       return obj.method.toUpperCase();
     }
   }
   // Default to POST for mutations without explicit method
-  return 'POST';
+  return "POST";
 }
 
 /**
  * Creates middleware that automatically invalidates queries based on mutation URLs
  */
-export function createUrlInvalidationMiddleware(reducerPath: string): Middleware {
+export function createUrlInvalidationMiddleware(
+  reducerPath: string,
+): Middleware {
   return (store) => (next) => (action: unknown) => {
     const result = next(action as UnknownAction);
     const mutationAction = action as MutationAction;
 
     // Only process fulfilled mutations
-    if (typeof mutationAction.type !== 'string') {
+    if (typeof mutationAction.type !== "string") {
       return result;
     }
 
     // Check if this is a fulfilled mutation for our API
+    // RTK Query uses either "executeMutation/fulfilled" or just "fulfilled" depending on version
     const isFulfilledMutation =
       mutationAction.type.startsWith(`${reducerPath}/`) &&
-      mutationAction.type.includes('/executeMutation/fulfilled');
+      (mutationAction.type.includes("/executeMutation/fulfilled") ||
+       (mutationAction.type.endsWith("/fulfilled") && mutationAction.meta?.arg?.type === "mutation"));
 
     if (!isFulfilledMutation) {
       return result;
     }
 
-    // Extract mutation details
-    const meta = mutationAction.meta;
-    if (!meta?.arg?.originalArgs) {
-      return result;
-    }
-
-    const url = extractUrl(meta.arg.originalArgs);
-    const method = extractMethod(meta.arg.originalArgs);
+    // Extract mutation details from the action
+    const url = extractUrlFromAction(mutationAction);
+    const method = extractMethodFromAction(mutationAction);
 
     if (!url) {
       return result;
     }
 
-    // Find queries to invalidate
-    const cacheKeysToInvalidate = urlInvalidationManager.findQueriesToInvalidate(
-      url,
-      method,
-      reducerPath
-    );
+    // Find endpoint names to invalidate based on URL patterns
+    const endpointsToInvalidate =
+      urlInvalidationManager.findQueriesToInvalidate(url, method, reducerPath);
 
-    if (cacheKeysToInvalidate.length === 0) {
+    if (endpointsToInvalidate.length === 0) {
       return result;
     }
 
-    // Get the API state to find endpoint information
+    // Get the API state to find all queries for these endpoints
     const state = store.getState() as Record<string, ApiState>;
     const apiState = state[reducerPath];
 
@@ -114,79 +140,61 @@ export function createUrlInvalidationMiddleware(reducerPath: string): Middleware
       return result;
     }
 
-    // Build set of endpoints to refetch
-    const endpointsToRefetch = new Set<string>();
+    // Get the registered API to trigger refetches
+    const api = getRegisteredApi(reducerPath);
+    if (!api) {
+      console.warn(
+        `[@dtsl/rtk-query] Cannot find registered API for ${reducerPath}, skipping URL invalidation`,
+      );
+      return result;
+    }
 
-    for (const cacheKey of cacheKeysToInvalidate) {
-      const queryEntry = apiState.queries[cacheKey];
-      if (queryEntry?.endpointName) {
-        endpointsToRefetch.add(queryEntry.endpointName);
+    // Find all queries in RTK Query state that match the endpoints to invalidate
+    const endpointSet = new Set(endpointsToInvalidate);
+    const queriesToRefetch: Array<{
+      endpointName: string;
+      originalArgs: unknown;
+      cacheKey: string;
+    }> = [];
+
+    for (const [cacheKey, queryEntry] of Object.entries(apiState.queries)) {
+      if (queryEntry?.endpointName && endpointSet.has(queryEntry.endpointName)) {
+        queriesToRefetch.push({
+          endpointName: queryEntry.endpointName,
+          originalArgs: queryEntry.originalArgs,
+          cacheKey,
+        });
       }
     }
 
-    // Dispatch invalidation action for each endpoint
-    // RTK Query will handle the actual refetch
-    if (endpointsToRefetch.size > 0) {
-      console.debug(
-        `[@dtsl/rtk-query] Auto-invalidating ${endpointsToRefetch.size} endpoints after ${method} ${url}`
-      );
+    if (queriesToRefetch.length === 0) {
+      return result;
+    }
 
-      // Dispatch a custom action that the API can listen for
-      store.dispatch({
-        type: `${reducerPath}/urlInvalidation`,
-        payload: {
-          mutationUrl: url,
-          mutationMethod: method,
-          invalidatedCacheKeys: cacheKeysToInvalidate,
-          invalidatedEndpoints: Array.from(endpointsToRefetch),
-        },
-      });
+    console.debug(
+      `[@dtsl/rtk-query] Auto-invalidating ${queriesToRefetch.length} queries after ${method} ${url}`,
+    );
+
+    // Trigger refetch for each invalidated query using RTK Query's initiate
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const endpoints = api.endpoints as Record<string, any>;
+
+    for (const query of queriesToRefetch) {
+      const endpoint = endpoints[query.endpointName];
+      if (endpoint?.initiate) {
+        // Dispatch with forceRefetch to bypass cache
+        store.dispatch(
+          endpoint.initiate(query.originalArgs, {
+            forceRefetch: true,
+            subscribe: false, // Don't create new subscription
+          }),
+        );
+        console.debug(
+          `[@dtsl/rtk-query] Refetching ${query.endpointName} (${query.cacheKey})`,
+        );
+      }
     }
 
     return result;
-  };
-}
-
-/**
- * Creates a listener that triggers refetches for URL-invalidated queries
- * This should be used with RTK Query's invalidation API
- */
-export function createUrlInvalidationHandler(
-  api: {
-    util: {
-      invalidateTags: (tags: Array<{ type: string; id?: string | number }>) => unknown;
-      resetApiState: () => unknown;
-    };
-    endpoints: Record<string, { initiate: (arg: unknown) => unknown }>;
-  },
-  dispatch: Dispatch
-) {
-  return (action: unknown) => {
-    const invalidationAction = action as {
-      type: string;
-      payload?: {
-        invalidatedCacheKeys: string[];
-        invalidatedEndpoints: string[];
-      };
-    };
-
-    if (!invalidationAction.type?.endsWith('/urlInvalidation')) {
-      return;
-    }
-
-    const { invalidatedEndpoints } = invalidationAction.payload || {};
-    if (!invalidatedEndpoints?.length) {
-      return;
-    }
-
-    // For each invalidated endpoint, we can trigger a refetch
-    // The actual implementation depends on how the consumer wants to handle it
-    // Option 1: Use tag invalidation (if they've set up tags)
-    // Option 2: Manually refetch specific queries
-
-    console.debug(
-      `[@dtsl/rtk-query] URL invalidation triggered for endpoints:`,
-      invalidatedEndpoints
-    );
   };
 }

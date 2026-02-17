@@ -19,8 +19,8 @@ export interface UrlPattern {
   pattern: string;
   /** Base resource path (e.g., /users) */
   basePath: string;
-  /** Cache key for this query */
-  cacheKey: string;
+  /** Endpoint name for this query */
+  endpointName: string;
   /** Reducer path of the API */
   reducerPath: string;
   /** Timestamp when registered */
@@ -33,7 +33,10 @@ export interface InvalidationRule {
   /** URL pattern to match */
   pattern: string | RegExp;
   /** Custom handler to determine which queries to invalidate */
-  invalidate?: (mutationUrl: string, registeredQueries: UrlPattern[]) => string[];
+  invalidate?: (
+    mutationUrl: string,
+    registeredQueries: UrlPattern[],
+  ) => string[];
 }
 
 /**
@@ -81,27 +84,30 @@ export class UrlInvalidationManager {
    * Register a query URL for potential invalidation
    */
   registerQuery(
-    cacheKey: string,
+    endpointName: string,
     url: string,
-    method: string = 'GET',
-    reducerPath: string
+    method: string = "GET",
+    reducerPath: string,
   ): void {
     const pattern = this.normalizeUrl(url);
     const basePath = this.extractBasePath(url);
 
-    this.queryRegistry.set(cacheKey, {
+    // Use URL + reducerPath as key to allow same URL from different APIs
+    const registryKey = `${reducerPath}:${url}`;
+
+    this.queryRegistry.set(registryKey, {
       url,
       method,
       pattern,
       basePath,
-      cacheKey,
+      endpointName,
       reducerPath,
       timestamp: Date.now(),
     });
 
     if (this.debug) {
       console.debug(
-        `[@dtsl/rtk-query] Registered query: ${method} ${url} -> ${pattern}`
+        `[@dtsl/rtk-query] Registered query: ${method} ${url} -> endpoint: ${endpointName}`,
       );
     }
   }
@@ -115,13 +121,14 @@ export class UrlInvalidationManager {
 
   /**
    * Find queries to invalidate based on a mutation
+   * Returns endpoint names that should be refetched
    */
   findQueriesToInvalidate(
     mutationUrl: string,
     mutationMethod: string,
-    reducerPath: string
+    reducerPath: string,
   ): string[] {
-    const cacheKeysToInvalidate: Set<string> = new Set();
+    const endpointsToInvalidate: Set<string> = new Set();
 
     // Check custom rules first
     for (const rule of this.customRules) {
@@ -129,16 +136,17 @@ export class UrlInvalidationManager {
         continue;
       }
 
-      const matches = typeof rule.pattern === 'string'
-        ? mutationUrl.includes(rule.pattern)
-        : rule.pattern.test(mutationUrl);
+      const matches =
+        typeof rule.pattern === "string"
+          ? mutationUrl.includes(rule.pattern)
+          : rule.pattern.test(mutationUrl);
 
       if (matches && rule.invalidate) {
         const queries = Array.from(this.queryRegistry.values()).filter(
-          q => q.reducerPath === reducerPath
+          (q) => q.reducerPath === reducerPath,
         );
         const keysToInvalidate = rule.invalidate(mutationUrl, queries);
-        keysToInvalidate.forEach(key => cacheKeysToInvalidate.add(key));
+        keysToInvalidate.forEach((key) => endpointsToInvalidate.add(key));
       }
     }
 
@@ -147,7 +155,7 @@ export class UrlInvalidationManager {
       const mutationBasePath = this.extractBasePath(mutationUrl);
       const mutationPattern = this.normalizeUrl(mutationUrl);
 
-      for (const [cacheKey, query] of this.queryRegistry) {
+      for (const [, query] of this.queryRegistry) {
         if (query.reducerPath !== reducerPath) {
           continue;
         }
@@ -157,11 +165,11 @@ export class UrlInvalidationManager {
           mutationUrl,
           mutationMethod,
           mutationBasePath,
-          mutationPattern
+          mutationPattern,
         );
 
         if (shouldInvalidate) {
-          cacheKeysToInvalidate.add(cacheKey);
+          endpointsToInvalidate.add(query.endpointName);
         }
       }
     }
@@ -169,20 +177,23 @@ export class UrlInvalidationManager {
     // Check cross-resource invalidation mappings
     for (const mapping of this.crossResourceMappings) {
       // Check if method matches (default: all mutation methods)
-      const methodMatches = !mapping.methods ||
-        mapping.methods.some(m => m.toUpperCase() === mutationMethod.toUpperCase());
+      const methodMatches =
+        !mapping.methods ||
+        mapping.methods.some(
+          (m) => m.toUpperCase() === mutationMethod.toUpperCase(),
+        );
 
       if (!methodMatches) continue;
 
       // Check if source pattern matches
       if (this.matchesPattern(mutationUrl, mapping.source)) {
         // Find all queries matching target patterns
-        for (const [cacheKey, query] of this.queryRegistry) {
+        for (const [, query] of this.queryRegistry) {
           if (query.reducerPath !== reducerPath) continue;
 
           for (const targetPattern of mapping.invalidates) {
             if (this.matchesPattern(query.url, targetPattern)) {
-              cacheKeysToInvalidate.add(cacheKey);
+              endpointsToInvalidate.add(query.endpointName);
               break;
             }
           }
@@ -190,14 +201,14 @@ export class UrlInvalidationManager {
       }
     }
 
-    if (this.debug && cacheKeysToInvalidate.size > 0) {
+    if (this.debug && endpointsToInvalidate.size > 0) {
       console.debug(
-        `[@dtsl/rtk-query] Invalidating ${cacheKeysToInvalidate.size} queries for ${mutationMethod} ${mutationUrl}:`,
-        Array.from(cacheKeysToInvalidate)
+        `[@dtsl/rtk-query] Invalidating ${endpointsToInvalidate.size} endpoints for ${mutationMethod} ${mutationUrl}:`,
+        Array.from(endpointsToInvalidate),
       );
     }
 
-    return Array.from(cacheKeysToInvalidate);
+    return Array.from(endpointsToInvalidate);
   }
 
   /**
@@ -208,7 +219,7 @@ export class UrlInvalidationManager {
     mutationUrl: string,
     mutationMethod: string,
     mutationBasePath: string,
-    mutationPattern: string
+    _mutationPattern: string,
   ): boolean {
     const method = mutationMethod.toUpperCase();
 
@@ -220,28 +231,30 @@ export class UrlInvalidationManager {
     const queryHasId = this.hasResourceId(query.url);
 
     switch (method) {
-      case 'POST':
+      case "POST":
         // POST creates new item -> invalidate list queries on same resource
         return sameBasePath && !queryHasId;
 
-      case 'PUT':
-      case 'PATCH':
+      case "PUT":
+      case "PATCH":
         // PUT/PATCH updates item -> invalidate:
         // 1. List queries on same resource (item might affect list order/filtering)
         // 2. The specific item query
         if (sameBasePath) {
           if (!queryHasId) return true; // List query
-          if (mutationHasId && this.isSameResource(mutationUrl, query.url)) return true;
+          if (mutationHasId && this.isSameResource(mutationUrl, query.url))
+            return true;
         }
         return false;
 
-      case 'DELETE':
+      case "DELETE":
         // DELETE removes item -> invalidate:
         // 1. List queries on same resource
         // 2. The specific item query being deleted
         if (sameBasePath) {
           if (!queryHasId) return true; // List query
-          if (mutationHasId && this.isSameResource(mutationUrl, query.url)) return true;
+          if (mutationHasId && this.isSameResource(mutationUrl, query.url))
+            return true;
         }
         return false;
 
@@ -255,22 +268,25 @@ export class UrlInvalidationManager {
    */
   private normalizeUrl(url: string): string {
     // Remove query string
-    const urlWithoutQuery = url.split('?')[0] ?? url;
+    const urlWithoutQuery = url.split("?")[0] ?? url;
 
     // Replace numeric IDs with :id
     // Matches: /123, /abc-123-def (UUIDs), etc.
     return urlWithoutQuery
-      .replace(/\/\d+/g, '/:id')
-      .replace(/\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '/:id')
-      .replace(/\/[a-f0-9]{24}/gi, '/:id'); // MongoDB ObjectIds
+      .replace(/\/\d+/g, "/:id")
+      .replace(
+        /\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi,
+        "/:id",
+      )
+      .replace(/\/[a-f0-9]{24}/gi, "/:id"); // MongoDB ObjectIds
   }
 
   /**
    * Extract base path from URL (e.g., /api/users/123 -> /api/users)
    */
   private extractBasePath(url: string): string {
-    const urlWithoutQuery = url.split('?')[0] ?? url;
-    const segments = urlWithoutQuery.split('/').filter(Boolean);
+    const urlWithoutQuery = url.split("?")[0] ?? url;
+    const segments = urlWithoutQuery.split("/").filter(Boolean);
 
     // Remove last segment if it looks like an ID
     const lastSegment = segments[segments.length - 1];
@@ -278,7 +294,7 @@ export class UrlInvalidationManager {
       segments.pop();
     }
 
-    return '/' + segments.join('/');
+    return "/" + segments.join("/");
   }
 
   /**
@@ -288,7 +304,12 @@ export class UrlInvalidationManager {
     // Numeric ID
     if (/^\d+$/.test(segment)) return true;
     // UUID
-    if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(segment)) return true;
+    if (
+      /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
+        segment,
+      )
+    )
+      return true;
     // MongoDB ObjectId
     if (/^[a-f0-9]{24}$/i.test(segment)) return true;
     return false;
@@ -298,9 +319,9 @@ export class UrlInvalidationManager {
    * Check if URL has a resource ID
    */
   private hasResourceId(url: string): boolean {
-    const urlWithoutQuery = url.split('?')[0] ?? url;
-    const segments = urlWithoutQuery.split('/').filter(Boolean);
-    return segments.some(s => this.looksLikeId(s));
+    const urlWithoutQuery = url.split("?")[0] ?? url;
+    const segments = urlWithoutQuery.split("/").filter(Boolean);
+    return segments.some((s) => this.looksLikeId(s));
   }
 
   /**
@@ -331,7 +352,7 @@ export class UrlInvalidationManager {
   invalidateOn(
     sourcePattern: string,
     targetPatterns: string[],
-    methods?: string[]
+    methods?: string[],
   ): void {
     this.crossResourceMappings.push({
       source: sourcePattern,
@@ -341,7 +362,7 @@ export class UrlInvalidationManager {
 
     if (this.debug) {
       console.debug(
-        `[@dtsl/rtk-query] Added cross-resource invalidation: ${sourcePattern} -> ${targetPatterns.join(', ')}`
+        `[@dtsl/rtk-query] Added cross-resource invalidation: ${sourcePattern} -> ${targetPatterns.join(", ")}`,
       );
     }
   }
@@ -357,17 +378,17 @@ export class UrlInvalidationManager {
    */
   private matchesPattern(url: string, pattern: string): boolean {
     // Remove query strings
-    const cleanUrl = url.split('?')[0] ?? url;
-    const cleanPattern = pattern.split('?')[0] ?? pattern;
+    const cleanUrl = url.split("?")[0] ?? url;
+    const cleanPattern = pattern.split("?")[0] ?? pattern;
 
     // Convert pattern to regex
     const regexPattern = cleanPattern
       // Escape special regex characters except *
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/[.+^${}()|[\]\\]/g, "\\$&")
       // ** matches any path (including slashes)
-      .replace(/\*\*/g, '.*')
+      .replace(/\*\*/g, ".*")
       // * matches a single segment (no slashes)
-      .replace(/\*/g, '[^/]+');
+      .replace(/\*/g, "[^/]+");
 
     const regex = new RegExp(`^${regexPattern}$`);
     return regex.test(cleanUrl);
@@ -387,7 +408,8 @@ export class UrlInvalidationManager {
     const byReducerPath: Record<string, number> = {};
 
     for (const query of this.queryRegistry.values()) {
-      byReducerPath[query.reducerPath] = (byReducerPath[query.reducerPath] || 0) + 1;
+      byReducerPath[query.reducerPath] =
+        (byReducerPath[query.reducerPath] || 0) + 1;
     }
 
     return {

@@ -135,10 +135,12 @@ export function enhanceBaseQuery<
 
       // Register query URL for auto-invalidation
       if (enableUrlInvalidation && isQuery && 'data' in result) {
-        const url = extractUrlFromArgs(args);
+        // Try to get the full URL from the response metadata first (includes baseUrl)
+        const fullUrl = extractFullUrlFromResult(result as { meta?: { request?: Request } });
+        const url = fullUrl || extractUrlFromArgs(args);
         if (url) {
           urlInvalidationManager.registerQuery(
-            cacheKey,
+            api.endpoint,
             url,
             'GET',
             reducerPath
@@ -160,6 +162,25 @@ export function enhanceBaseQuery<
       }
     }
   };
+}
+
+/**
+ * Extract full URL from query result metadata
+ * This gets the actual URL used (with baseUrl prepended)
+ */
+function extractFullUrlFromResult(result: { meta?: { request?: Request } }): string | null {
+  const requestUrl = result.meta?.request?.url;
+  if (requestUrl) {
+    try {
+      // Parse URL to get just the pathname (without origin)
+      const url = new URL(requestUrl);
+      return url.pathname;
+    } catch {
+      // If it's not a valid URL, return null
+      return null;
+    }
+  }
+  return null;
 }
 
 /**
