@@ -1,43 +1,34 @@
 /**
- * Demo Host Shell Application
- *
- * Simple demo showcasing @dtsl/rtk-query features:
- * 1. Request Coalescing - 4 MFEs load same data = 1 API call
- * 2. Shared Cache - Data loaded by one MFE available to others
- * 3. Unified Invalidation - Mutation in one MFE updates all others
- *
- * The API is intentionally slow (3-4 seconds) to make coalescing visible.
+ * Demo Host — showcases all @dtsl/rtk-query invalidation patterns
+ * across 7 separate MFE apps sharing cache via the global registry.
  */
 
-import React, { Suspense, useState, useEffect } from "react";
+import React, { Suspense } from "react";
+import { Provider } from "@dtsl/rtk-query/react";
+import { store } from "./store";
+import { useTransferAccountMutation } from "./api";
 
-// Lazy load the remote microfrontends
 const DemoListDelete = React.lazy(() => import("demoListDelete/App"));
 const DemoListAdd = React.lazy(() => import("demoListAdd/App"));
 const DemoListUpdate = React.lazy(() => import("demoListUpdate/App"));
+const DemoCrUsers = React.lazy(() => import("demoCrUsers/App"));
+const DemoCrOrders = React.lazy(() => import("demoCrOrders/App"));
+const DemoTbUsers = React.lazy(() => import("demoTbUsers/App"));
+const DemoTbOrders = React.lazy(() => import("demoTbOrders/App"));
 
-function LoadingSpinner({ name, color }: { name: string; color: string }) {
+function Spinner({ name, color }: { name: string; color: string }) {
   return (
-    <div
-      className={`flex items-center justify-center py-16 bg-${color}-50 rounded-lg border-2 border-${color}-200`}
-    >
-      <div
-        className={`animate-spin rounded-full h-8 w-8 border-b-2 border-${color}-600`}
-      ></div>
-      <span className={`ml-3 text-${color}-600`}>Loading {name}...</span>
+    <div className={`flex items-center justify-center py-12 bg-${color}-50 rounded-lg border-2 border-${color}-200`}>
+      <div className={`animate-spin rounded-full h-8 w-8 border-b-2 border-${color}-600`} />
+      <span className={`ml-3 text-${color}-600 text-sm`}>Loading {name}...</span>
     </div>
   );
 }
 
-function MfeErrorFallback({ name }: { name: string }) {
+function ErrorFallback({ name }: { name: string }) {
   return (
-    <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-center min-h-[300px] flex items-center justify-center">
-      <div>
-        <p className="text-red-600 font-medium">Failed to load {name}</p>
-        <p className="text-red-400 text-sm mt-1">
-          Make sure the MFE is running
-        </p>
-      </div>
+    <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-center py-12 text-red-500 text-sm">
+      Failed to load {name} — is it running?
     </div>
   );
 }
@@ -50,110 +41,115 @@ class ErrorBoundary extends React.Component<
     super(props);
     this.state = { hasError: false };
   }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
+  static getDerivedStateFromError() { return { hasError: true }; }
   render() {
-    if (this.state.hasError) {
-      return this.props.fallback;
-    }
-    return this.props.children;
+    return this.state.hasError ? this.props.fallback : this.props.children;
   }
 }
 
-function App() {
-  const [apiStats, setApiStats] = useState<{ totalRequests: number } | null>(
-    null,
+function MFE({ name, color, children }: { name: string; color: string; children: React.ReactNode }) {
+  return (
+    <ErrorBoundary fallback={<ErrorFallback name={name} />}>
+      <Suspense fallback={<Spinner name={name} color={color} />}>
+        {children}
+      </Suspense>
+    </ErrorBoundary>
   );
-  const [startTime] = useState(Date.now());
-  const [elapsed, setElapsed] = useState(0);
+}
 
-  // useEffect(() => {
-  //   const statsInterval = setInterval(async () => {
-  //     try {
-  //       const res = await fetch('http://localhost:4000/api/stats');
-  //       const data = await res.json();
-  //       setApiStats(data);
-  //     } catch {
-  //       setApiStats(null);
-  //     }
-  //   }, 500);
+// "Do Both" button lives in the host to show cross-app tag invalidation
+function DoBothButton() {
+  const [transferAccount, { isLoading }] = useTransferAccountMutation();
 
-  //   const timeInterval = setInterval(() => {
-  //     setElapsed(Math.floor((Date.now() - startTime) / 1000));
-  //   }, 1000);
-
-  //   return () => {
-  //     clearInterval(statsInterval);
-  //     clearInterval(timeInterval);
-  //   };
-  // }, [startTime]);
-
-  const resetCounter = async () => {
-    try {
-      await fetch("http://localhost:4000/api/reset", { method: "POST" });
-    } catch {
-      // Ignore
-    }
+  const handleDoBoth = () => {
+    transferAccount({ id: 1, name: `Alice #${Date.now().toString().slice(-3)}` });
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold">@dtsl/rtk-query Demo</h1>
-          <p className="text-indigo-200 mt-1">
-            3 MFEs sharing one slow API - Watch the magic of request coalescing!
-          </p>
-        </div>
-      </header>
-
-      {/* MFE Grid */}
-      <main className="max-w-7xl mx-auto px-4 py-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Delete MFE */}
-          <ErrorBoundary fallback={<MfeErrorFallback name="Delete MFE" />}>
-            <Suspense
-              fallback={<LoadingSpinner name="Delete MFE" color="red" />}
-            >
-              <DemoListDelete />
-            </Suspense>
-          </ErrorBoundary>
-
-          {/* Add MFE */}
-          <ErrorBoundary fallback={<MfeErrorFallback name="Add MFE" />}>
-            <Suspense
-              fallback={<LoadingSpinner name="Add MFE" color="green" />}
-            >
-              <DemoListAdd />
-            </Suspense>
-          </ErrorBoundary>
-
-          {/* Update MFE */}
-          <ErrorBoundary fallback={<MfeErrorFallback name="Update MFE" />}>
-            <Suspense
-              fallback={<LoadingSpinner name="Update MFE" color="blue" />}
-            >
-              <DemoListUpdate />
-            </Suspense>
-          </ErrorBoundary>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="max-w-7xl mx-auto px-4 py-6 text-center text-gray-500 text-sm">
-        <p>
-          All 3 MFEs use the same{" "}
-          <code className="bg-gray-200 px-1 rounded">
-            reducerPath: 'demoApi'
-          </code>{" "}
-          - this enables shared cache & request coalescing via @dtsl/rtk-query
-        </p>
-      </footer>
+    <div className="p-4 bg-purple-50 rounded-lg border-2 border-purple-300 text-center">
+      <p className="font-bold text-purple-800 text-sm mb-1">Host — Do Both</p>
+      <code className="block text-xs text-purple-600 bg-purple-100 rounded px-2 py-1 mb-3">
+        invalidatesTags: ['User', 'Order']
+      </code>
+      <p className="text-xs text-gray-500 mb-3">✅ Users refreshes · ✅ Orders refreshes</p>
+      <button onClick={handleDoBoth} disabled={isLoading}
+        className="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium">
+        {isLoading ? 'Working...' : '🔀 Invalidate Both Tags'}
+      </button>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Provider store={store} mfeName="demo-host">
+      <div className="min-h-screen bg-gray-100">
+        <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <h1 className="text-3xl font-bold">@dtsl/rtk-query Demo</h1>
+            <p className="text-indigo-200 mt-1">
+              7 separate MFE apps · 3 invalidation patterns · 1 shared cache
+            </p>
+          </div>
+        </header>
+
+        <main className="max-w-7xl mx-auto px-4 py-6 space-y-8">
+
+          {/* Section 1: URL-Based Auto-Invalidation */}
+          <section>
+            <div className="mb-3">
+              <h2 className="text-lg font-bold text-gray-800">URL-Based Auto-Invalidation</h2>
+              <p className="text-sm text-gray-500">3 MFEs, 1 slow API — add/delete/update auto-refreshes all panels with no tags</p>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <MFE name="Delete MFE" color="red"><DemoListDelete /></MFE>
+              <MFE name="Add MFE" color="green"><DemoListAdd /></MFE>
+              <MFE name="Update MFE" color="blue"><DemoListUpdate /></MFE>
+            </div>
+          </section>
+
+          <hr className="border-gray-300" />
+
+          {/* Section 2: Cross-Resource Invalidation */}
+          <section>
+            <div className="mb-3">
+              <h2 className="text-lg font-bold text-gray-800">Cross-Resource Invalidation</h2>
+              <p className="text-sm text-gray-500">
+                Rename a user → orders refresh automatically via{' '}
+                <code className="bg-gray-100 px-1 rounded text-xs">urlInvalidationManager.invalidateOn()</code> · no tags
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <MFE name="Users MFE" color="purple"><DemoCrUsers /></MFE>
+              <MFE name="Orders MFE" color="indigo"><DemoCrOrders /></MFE>
+            </div>
+          </section>
+
+          <hr className="border-gray-300" />
+
+          {/* Section 3: Tag-Based Invalidation */}
+          <section>
+            <div className="mb-3">
+              <h2 className="text-lg font-bold text-gray-800">Tag-Based Invalidation</h2>
+              <p className="text-sm text-gray-500">
+                Explicit <code className="bg-gray-100 px-1 rounded text-xs">providesTags</code> /{' '}
+                <code className="bg-gray-100 px-1 rounded text-xs">invalidatesTags</code> — each button only refreshes the panels whose tags it declares
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <MFE name="Users MFE" color="orange"><DemoTbUsers /></MFE>
+              <DoBothButton />
+              <MFE name="Orders MFE" color="teal"><DemoTbOrders /></MFE>
+            </div>
+          </section>
+
+        </main>
+
+        <footer className="max-w-7xl mx-auto px-4 py-6 text-center text-gray-400 text-xs border-t border-gray-200 mt-4">
+          All MFEs share cache via <code>window.__DTSL_RTK_QUERY_REGISTRY__</code> · @dtsl/rtk-query
+        </footer>
+      </div>
+    </Provider>
   );
 }
 

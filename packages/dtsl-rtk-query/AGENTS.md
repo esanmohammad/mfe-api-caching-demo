@@ -19,6 +19,7 @@ Transform your independent MFEs into a unified, efficient data-sharing ecosystem
   - [Unified Invalidation](#3-unified-invalidation)
   - [Reference Counting](#4-reference-counting)
   - [URL-Based Auto-Invalidation](#5-url-based-auto-invalidation)
+  - [Config Merging & Base Query Routing](#6-config-merging--base-query-routing)
 - [API Reference](#api-reference)
 - [Debugging & Observability](#debugging--observability)
 - [Best Practices](#best-practices)
@@ -144,7 +145,8 @@ Transform your independent MFEs into a unified, efficient data-sharing ecosystem
 │  │  │ • API storage │  │ • Detection   │  │              │  │              │  │  │
 │  │  │ • Store map   │  │ • URL parsing │  │ • Increment  │  │ • In-flight  │  │  │
 │  │  │ • Subscribers │  │ • Federation  │  │ • Decrement  │  │ • Coalescing │  │  │
-│  │  │               │  │   detection   │  │ • Cleanup    │  │ • History    │  │  │
+│  │  │ • Config snap │  │   detection   │  │ • Cleanup    │  │ • History    │  │  │
+│  │  │ • BQ Router   │  │               │  │              │  │              │  │  │
 │  │  └───────────────┘  └───────────────┘  └──────────────┘  └──────────────┘  │  │
 │  │                                                                             │  │
 │  │  ┌─────────────────────────────────────────────────────────────────────┐   │  │
@@ -183,7 +185,8 @@ packages/dtsl-rtk-query/
 │   ├── Provider.tsx             # MFE-aware Provider
 │   │
 │   ├── core/                    # Core infrastructure
-│   │   ├── globalRegistry.ts    # Singleton API/store registry
+│   │   ├── globalRegistry.ts    # Singleton API/store registry + config snapshots
+│   │   ├── baseQueryRouter.ts   # Routes endpoints to correct baseQuery per MFE
 │   │   ├── mfeContext.ts        # MFE detection & context
 │   │   ├── refCountManager.ts   # Reference counting
 │   │   └── requestTracker.ts    # Request coalescing
@@ -446,39 +449,46 @@ All MFEs using the same `reducerPath` share a single Redux store and cache.
 │   │                                                                         │   │
 │   │   createApi({                                                           │   │
 │   │     reducerPath: 'api',  ◄─── SAME reducerPath!                         │   │
+│   │     tagTypes: ['Order'],  ◄─── May have DIFFERENT tags                   │   │
+│   │     baseQuery: fetchBaseQuery({                                         │   │
+│   │       baseUrl: '/orders-api'  ◄─── May have DIFFERENT baseUrl           │   │
+│   │     }),                                                                 │   │
 │   │     endpoints: (builder) => ({                                          │   │
-│   │       getOrders: builder.query({...}),   ◄─── Different endpoints       │   │
+│   │       getOrders: builder.query({...}),                                  │   │
 │   │       createOrder: builder.mutation({...})                              │   │
 │   │     })                                                                  │   │
 │   │   })                                                                    │   │
 │   │                                                                         │   │
 │   │                         │                                               │   │
 │   │                         ▼                                               │   │
-│   │              ┌─────────────────────┐                                    │   │
-│   │              │  Detects existing   │                                    │   │
-│   │              │  API for 'api'      │                                    │   │
-│   │              └──────────┬──────────┘                                    │   │
-│   │                         │                                               │   │
-│   │                         ▼                                               │   │
-│   │              ┌─────────────────────┐                                    │   │
-│   │              │  INJECTS endpoints  │                                    │   │
-│   │              │  into existing API  │                                    │   │
-│   │              └──────────┬──────────┘                                    │   │
-│   │                         │                                               │   │
-│   │                         ▼                                               │   │
-│   │              ┌─────────────────────┐                                    │   │
-│   │              │  Global Registry    │                                    │   │
-│   │              │                     │                                    │   │
-│   │              │  apis: {            │                                    │   │
-│   │              │    'api': {         │                                    │   │
-│   │              │      api: <API>,    │  ◄─── SAME instance,               │   │
-│   │              │      store: <Store>,│       MORE endpoints               │   │
-│   │              │      subscribers:   │                                    │   │
-│   │              │        ['mfe-profile',                                   │   │
-│   │              │         'mfe-orders'] ◄─── Added subscriber              │   │
-│   │              │    }                │                                    │   │
-│   │              │  }                  │                                    │   │
-│   │              └─────────────────────┘                                    │   │
+│   │              ┌─────────────────────────────────┐                        │   │
+│   │              │  1. Detect existing API          │                        │   │
+│   │              │  2. Merge new tagTypes ['Order'] │                        │   │
+│   │              │  3. Inject endpoints             │                        │   │
+│   │              │  4. Route new endpoints to       │                        │   │
+│   │              │     MFE-Orders' baseQuery        │                        │   │
+│   │              │  5. Subscribe MFE                │                        │   │
+│   │              │  6. Warn on config divergence    │                        │   │
+│   │              └──────────────┬──────────────────┘                        │   │
+│   │                              │                                          │   │
+│   │                              ▼                                          │   │
+│   │              ┌─────────────────────────────────┐                        │   │
+│   │              │  Global Registry                │                        │   │
+│   │              │                                 │                        │   │
+│   │              │  apis: {                        │                        │   │
+│   │              │    'api': {                     │                        │   │
+│   │              │      api: <API>,                │  ◄── SAME instance     │   │
+│   │              │      store: <Store>,            │                        │   │
+│   │              │      baseQueryRouter: <Router>, │  ◄── Routes endpoints  │   │
+│   │              │      configSnapshot: {          │                        │   │
+│   │              │        tagTypes: ['User','Order']│  ◄── Merged tags      │   │
+│   │              │      },                         │                        │   │
+│   │              │      subscribers:               │                        │   │
+│   │              │        ['mfe-profile',           │                        │   │
+│   │              │         'mfe-orders']            │  ◄── Tracked          │   │
+│   │              │    }                            │                        │   │
+│   │              │  }                              │                        │   │
+│   │              └─────────────────────────────────┘                        │   │
 │   │                                                                         │   │
 │   └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                 │
@@ -824,6 +834,156 @@ urlInvalidationManager.setDebug(true);
 
 ---
 
+### 6. Config Merging & Base Query Routing
+
+When multiple MFEs call `createApi()` with the same `reducerPath`, the library now **detects, merges, and routes** rather than silently discarding the second MFE's config.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                     CONFIG MERGING & BASE QUERY ROUTING                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │                    WHAT HAPPENS ON SECOND REGISTRATION                   │   │
+│   │                                                                         │   │
+│   │   MFE-A (first):                        MFE-B (second):                 │   │
+│   │   ┌─────────────────────┐               ┌─────────────────────┐        │   │
+│   │   │ reducerPath: 'api'  │               │ reducerPath: 'api'  │        │   │
+│   │   │ baseUrl: /users-api │               │ baseUrl: /orders-api│        │   │
+│   │   │ tagTypes: ['User']  │               │ tagTypes: ['Order'] │        │   │
+│   │   │ keepUnusedDataFor:  │               │ keepUnusedDataFor:  │        │   │
+│   │   │   300               │               │   600               │        │   │
+│   │   │ endpoints:          │               │ endpoints:          │        │   │
+│   │   │   getUser           │               │   getOrders         │        │   │
+│   │   │   updateUser        │               │   createOrder       │        │   │
+│   │   └─────────────────────┘               └──────────┬──────────┘        │   │
+│   │                                                     │                   │   │
+│   │                                                     ▼                   │   │
+│   │                                          ┌──────────────────────┐       │   │
+│   │                                          │  createApi detects   │       │   │
+│   │                                          │  existing 'api'      │       │   │
+│   │                                          └──────────┬───────────┘       │   │
+│   │                                                     │                   │   │
+│   │                            ┌────────────────────────┼─────────────┐     │   │
+│   │                            │                        │             │     │   │
+│   │                            ▼                        ▼             ▼     │   │
+│   │                   ┌────────────────┐  ┌──────────────────┐ ┌─────────┐ │   │
+│   │                   │ MERGE tagTypes │  │ ROUTE baseQuery  │ │  WARN   │ │   │
+│   │                   │                │  │                  │ │ on diff │ │   │
+│   │                   │ ['User'] +     │  │ getUser    → /A  │ │ config  │ │   │
+│   │                   │ ['Order'] =    │  │ updateUser → /A  │ │         │ │   │
+│   │                   │ ['User',       │  │ getOrders  → /B  │ │ keepUnu │ │   │
+│   │                   │  'Order']      │  │ createOrder→ /B  │ │ sedData │ │   │
+│   │                   └────────────────┘  └──────────────────┘ └─────────┘ │   │
+│   │                                                                         │   │
+│   └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                 │
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │                        BASE QUERY ROUTER FLOW                           │   │
+│   │                                                                         │   │
+│   │   When any endpoint is called, the router dispatches to the correct     │   │
+│   │   backend based on which MFE defined that endpoint:                     │   │
+│   │                                                                         │   │
+│   │   Component calls useGetUserQuery(1)                                    │   │
+│   │          │                                                              │   │
+│   │          ▼                                                              │   │
+│   │   ┌────────────────────────────────────────────────┐                    │   │
+│   │   │              Base Query Router                 │                    │   │
+│   │   │                                                │                    │   │
+│   │   │   endpoint: "getUser"                          │                    │   │
+│   │   │     → lookup in endpointMap                    │                    │   │
+│   │   │     → found: MFE-A's enhanced baseQuery        │                    │   │
+│   │   │     → dispatch to /users-api                   │                    │   │
+│   │   └───────────────────────┬────────────────────────┘                    │   │
+│   │                           │                                             │   │
+│   │                           ▼                                             │   │
+│   │                  GET /users-api/users/1                                  │   │
+│   │                                                                         │   │
+│   │                                                                         │   │
+│   │   Component calls useGetOrdersQuery()                                   │   │
+│   │          │                                                              │   │
+│   │          ▼                                                              │   │
+│   │   ┌────────────────────────────────────────────────┐                    │   │
+│   │   │              Base Query Router                 │                    │   │
+│   │   │                                                │                    │   │
+│   │   │   endpoint: "getOrders"                        │                    │   │
+│   │   │     → lookup in endpointMap                    │                    │   │
+│   │   │     → found: MFE-B's enhanced baseQuery        │                    │   │
+│   │   │     → dispatch to /orders-api                  │                    │   │
+│   │   └───────────────────────┬────────────────────────┘                    │   │
+│   │                           │                                             │   │
+│   │                           ▼                                             │   │
+│   │                  GET /orders-api/orders                                  │   │
+│   │                                                                         │   │
+│   └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                 │
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │                   INVALIDATION IS INDEPENDENT OF ROUTING                │   │
+│   │                                                                         │   │
+│   │   Invalidation (tag or URL-based) decides WHAT to refetch.              │   │
+│   │   The router decides WHERE each refetch goes.                           │   │
+│   │   These are orthogonal — they don't interfere.                          │   │
+│   │                                                                         │   │
+│   │   1. Mutation completes (e.g. POST /orders-api/orders)                  │   │
+│   │   2. Invalidation says: refetch getOrders  ◄── decides WHAT             │   │
+│   │   3. RTK Query calls baseQuery for getOrders                            │   │
+│   │   4. Router dispatches to /orders-api      ◄── decides WHERE            │   │
+│   │                                                                         │   │
+│   │   URL-based invalidation uses relative paths (/orders, /users),         │   │
+│   │   so /users mutations only invalidate /users queries — never            │   │
+│   │   /orders queries, even though they share a reducerPath.                │   │
+│   │                                                                         │   │
+│   └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                 │
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │                     MERGE vs ROUTE vs WARN SUMMARY                      │   │
+│   │                                                                         │   │
+│   │   Config                    Behavior                                    │   │
+│   │   ────────────────────────────────────────────────────────────────      │   │
+│   │   tagTypes                  MERGED — union of both MFEs' tags           │   │
+│   │   baseQuery                 ROUTED — each MFE's endpoints use           │   │
+│   │                             their own enhanced baseQuery                │   │
+│   │   mfeOptions                PER-MFE — applied to each MFE's own        │   │
+│   │                             enhanced baseQuery via the router           │   │
+│   │   keepUnusedDataFor         WARN — first value wins, logs warning       │   │
+│   │                             (only remaining first-registerer-wins)      │   │
+│   │   MFE subscription          TRACKED — subscribe() called automatically  │   │
+│   │                                                                         │   │
+│   └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### How It Works
+
+```typescript
+// First MFE registers — creates the API with a base query router
+const router = createBaseQueryRouter(enhancedBaseQuery);
+const api = rtkCreateApi({ baseQuery: router.baseQuery, ... });
+registerApi(reducerPath, api, store, mfeName, configSnapshot, router);
+
+// Second MFE registers — injects endpoints and adds routes
+const existingApi = getRegisteredApi(reducerPath);
+const router = getRegisteredRouter(reducerPath);
+
+// Merge tagTypes
+existingApi.enhanceEndpoints({ addTagTypes: newTags });
+
+// Snapshot endpoints, inject, diff
+const before = new Set(Object.keys(existingApi.endpoints));
+const enhanced = existingApi.injectEndpoints({ endpoints, overrideExisting: false });
+const newEndpoints = Object.keys(enhanced.endpoints).filter(n => !before.has(n));
+
+// Route new endpoints to this MFE's own baseQuery
+const enhancedIncomingBaseQuery = enhanceBaseQuery(baseQuery, { ...mfeOptions });
+router.addRoutes(newEndpoints, enhancedIncomingBaseQuery);
+```
+
+---
+
 ## API Reference
 
 ### Exports
@@ -846,6 +1006,12 @@ import {
   resetRegistry,
   isApiRegistered,
   getRegisteredApi,
+  getRegisteredConfig,       // Config snapshot for a registered API
+  getRegisteredRouter,       // Base query router for a registered API
+  updateConfigSnapshot,      // Update config snapshot after merging
+
+  // Base Query Router
+  createBaseQueryRouter,     // Create a routing baseQuery wrapper
 
   // MFE Context
   getMfeContext,
@@ -866,6 +1032,8 @@ import {
 
 // Type exports
 import type {
+  ApiConfigSnapshot,         // Config captured at registration time
+  BaseQueryRouter,           // Router interface with addRoutes()
   UrlPattern,
   InvalidationRule,
   UrlInvalidationOptions,
@@ -892,6 +1060,12 @@ import {
 
   // Managers (singletons)
   urlInvalidationManager,
+
+  // Registry & Routing
+  getRegisteredConfig,
+  getRegisteredRouter,
+  updateConfigSnapshot,
+  createBaseQueryRouter,
 
   // Middleware
   createCacheLifecycleMiddleware,
@@ -1000,20 +1174,46 @@ export const api = createApi({
 });
 ```
 
-### ❌ DON'T: Use Different reducerPaths
+### ✅ DO: Share reducerPath Even With Different baseUrls
+
+```typescript
+// mfe-profile/api.ts — points at users service
+export const api = createApi({
+  reducerPath: 'api',
+  baseQuery: fetchBaseQuery({ baseUrl: '/users-api' }),  // ✅ Different baseUrl is OK!
+  tagTypes: ['User'],
+  endpoints: (builder) => ({
+    getUser: builder.query({ query: (id) => `/users/${id}` }),
+  }),
+});
+
+// mfe-orders/api.ts — points at orders service
+export const api = createApi({
+  reducerPath: 'api',  // ✅ Same reducerPath = shared cache + automatic routing
+  baseQuery: fetchBaseQuery({ baseUrl: '/orders-api' }),
+  tagTypes: ['Order'],
+  endpoints: (builder) => ({
+    getOrders: builder.query({ query: () => `/orders` }),
+  }),
+});
+// getUser → /users-api, getOrders → /orders-api — routed automatically!
+```
+
+### ❌ DON'T: Use Different reducerPaths (Unless Intentional)
 
 ```typescript
 // mfe-profile/api.ts
 export const api = createApi({
-  reducerPath: 'profileApi',  // ❌ Different name
+  reducerPath: 'profileApi',  // ❌ Different name = separate caches
   // ...
 });
 
 // mfe-orders/api.ts
 export const api = createApi({
-  reducerPath: 'ordersApi',   // ❌ Different name = separate caches
+  reducerPath: 'ordersApi',   // ❌ No shared cache, no cross-MFE invalidation
   // ...
 });
+// Only use different reducerPaths if you explicitly DON'T want cache sharing.
 ```
 
 ### ✅ DO: Use Consistent Tags (Optional with URL Invalidation)

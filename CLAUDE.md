@@ -50,6 +50,8 @@ apps/
   demo-list-add/     # Demo: List + Add item (tests POST invalidation)
   demo-list-delete/  # Demo: List + Delete item (tests DELETE invalidation)
   demo-list-update/  # Demo: List + Update item (tests PUT/PATCH invalidation)
+  demo-cross-resource/ # Demo: Cross-resource invalidation (Users MFE → Orders MFE, port 4006)
+  demo-tag-based/    # Demo: Tag-based invalidation with fine-grained control (port 4007)
 
 packages/
   dtsl-rtk-query/    # @dtsl/rtk-query - RTK Query wrapper for MFEs (core library) ⭐
@@ -158,15 +160,30 @@ packages/dtsl-rtk-query/src/
 ## Development Notes
 
 - **Port allocation:** 3000 (host), 3001 (remote-app), 3002 (profile), 3003 (orders), 3004 (admin), 4000 (mock-api)
-- **Demo ports:** 5173 (demo-list-add), 5174 (demo-list-delete), 5175 (demo-list-update)
+- **Demo ports:** 4001 (demo-list-delete), 4002 (demo-list-add), 4003 (demo-list-update), 4005 (demo-host), 4006 (demo-cross-resource), 4007 (demo-tag-based)
 - **Start order:** Mock API starts automatically with `yarn dev`; all ports must be available
 - **Path alias:** All apps use `@/*` → `./src/*`
 - **TypeScript:** Strict mode enabled; extends `@repo/tsconfig/vite.json`
 - **Build outputs:** `dist/` directories (cached by Turbo)
 
-## Testing URL-Based Invalidation
+## Testing Invalidation Demos
 
+### URL-Based Auto-Invalidation (existing)
 1. Start demo server: `yarn demo:dev`
-2. Open any demo app (e.g., http://localhost:5173)
-3. Add/Update/Delete an item
-4. Observe list automatically refreshes WITHOUT manual tag invalidation
+2. Open demo-host at http://localhost:4005
+3. Add/Update/Delete an item in any panel
+4. Observe all panels refresh WITHOUT manual tag invalidation
+
+### Cross-Resource Invalidation (new)
+1. Start demo server: `yarn demo:dev`
+2. Open http://localhost:4006
+3. Rename any user in the Users panel
+4. Observe the Orders panel **also** refreshes via `urlInvalidationManager.invalidateOn()` — no tags used!
+
+### Tag-Based Invalidation (new)
+1. Start demo server: `yarn demo:dev`
+2. Open http://localhost:4007
+3. Select a user, try the 3 action buttons:
+   - "Rename User" → only Users panel refreshes (`invalidatesTags: [User]`)
+   - "Create Order" → only Orders panel refreshes (`invalidatesTags: [Order]`)
+   - "Transfer Account" → BOTH panels refresh (`invalidatesTags: [User, Order]`)
