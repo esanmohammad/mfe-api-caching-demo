@@ -8,7 +8,7 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev --concurrency 15",
-    "demo:dev": "turbo dev --filter='@repo/demo-*' --filter=@repo/mock-api --concurrency 10",
+    "demo:dev": "turbo dev --filter='@repo/demo-*' --filter=@repo/mock-api --concurrency 15",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "clean": "turbo clean && rm -rf node_modules"
