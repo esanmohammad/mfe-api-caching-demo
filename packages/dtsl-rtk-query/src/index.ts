@@ -50,10 +50,15 @@ export {
   resetRegistry,
   getRegisteredApi,
   getRegisteredStore,
+  getRegisteredConfig,
+  getRegisteredRouter,
+  updateConfigSnapshot,
   isApiRegistered,
   subscribe,
   unsubscribe,
 } from './core/globalRegistry';
+
+export { createBaseQueryRouter } from './core/baseQueryRouter';
 
 export {
   getMfeContext,
@@ -97,7 +102,8 @@ export type { MfeCreateApiOptions } from './createApi';
 export type { MfeFetchBaseQueryArgs } from './fetchBaseQuery';
 export type { RefCountState, RefCountStats } from './core/refCountManager';
 export type { TrackedRequest, RequestTrackerStats } from './core/requestTracker';
-export type { ApiRegistryEntry, GlobalRegistry } from './core/globalRegistry';
+export type { ApiRegistryEntry, ApiConfigSnapshot, GlobalRegistry } from './core/globalRegistry';
+export type { BaseQueryRouter } from './core/baseQueryRouter';
 export type { EnhancedBaseQueryOptions } from './enhancers/baseQueryEnhancer';
 export type { SerializerOptions } from './enhancers/serializerEnhancer';
 export type {

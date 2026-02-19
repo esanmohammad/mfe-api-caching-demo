@@ -5,10 +5,20 @@
 
 import type { Api, BaseQueryFn, EndpointDefinitions } from '@reduxjs/toolkit/query';
 import type { Store, EnhancedStore } from '@reduxjs/toolkit';
+import type { BaseQueryRouter } from './baseQueryRouter';
 import { refCountManager } from './refCountManager';
 import { requestTracker } from './requestTracker';
 
 const REGISTRY_KEY = '__DTSL_RTK_QUERY_REGISTRY__';
+
+/**
+ * Snapshot of config provided at API creation time.
+ * Used to detect divergence and merge tagTypes across MFEs.
+ */
+export interface ApiConfigSnapshot {
+  keepUnusedDataFor?: number;
+  tagTypes?: readonly string[];
+}
 
 export interface ApiRegistryEntry {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,6 +27,8 @@ export interface ApiRegistryEntry {
   subscribers: Set<string>;
   createdAt: number;
   createdBy: string;
+  configSnapshot?: ApiConfigSnapshot;
+  baseQueryRouter?: BaseQueryRouter;
 }
 
 export interface GlobalRegistry {
@@ -57,7 +69,9 @@ export function registerApi(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   api: Api<BaseQueryFn, EndpointDefinitions, string, any>,
   store: Store | EnhancedStore,
-  createdBy: string
+  createdBy: string,
+  configSnapshot?: ApiConfigSnapshot,
+  baseQueryRouter?: BaseQueryRouter
 ): void {
   const registry = getGlobalRegistry();
 
@@ -74,6 +88,8 @@ export function registerApi(
     subscribers: new Set([createdBy]),
     createdAt: Date.now(),
     createdBy,
+    configSnapshot,
+    baseQueryRouter,
   };
 
   registry.apis.set(reducerPath, entry);
@@ -107,6 +123,33 @@ export function getRegisteredStore(reducerPath: string): Store | EnhancedStore |
 export function isApiRegistered(reducerPath: string): boolean {
   const registry = getGlobalRegistry();
   return registry.apis.has(reducerPath);
+}
+
+/**
+ * Get the config snapshot for a registered API
+ */
+export function getRegisteredConfig(reducerPath: string): ApiConfigSnapshot | undefined {
+  const registry = getGlobalRegistry();
+  return registry.apis.get(reducerPath)?.configSnapshot;
+}
+
+/**
+ * Update the config snapshot for a registered API (e.g. after merging tagTypes)
+ */
+export function updateConfigSnapshot(reducerPath: string, patch: Partial<ApiConfigSnapshot>): void {
+  const registry = getGlobalRegistry();
+  const entry = registry.apis.get(reducerPath);
+  if (entry && entry.configSnapshot) {
+    entry.configSnapshot = { ...entry.configSnapshot, ...patch };
+  }
+}
+
+/**
+ * Get the base query router for a registered API
+ */
+export function getRegisteredRouter(reducerPath: string): BaseQueryRouter | undefined {
+  const registry = getGlobalRegistry();
+  return registry.apis.get(reducerPath)?.baseQueryRouter;
 }
 
 /**
