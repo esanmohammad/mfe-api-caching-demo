@@ -6,14 +6,18 @@
  * No tags used anywhere.
  */
 
-import { createApi, fetchBaseQuery, urlInvalidationManager } from '@dtsl/rtk-query/react';
+import {
+  createApi,
+  fetchBaseQuery,
+  urlInvalidationManager,
+} from "@dtsl/rtk-query/react";
 
 // Configure cross-resource rule once at startup.
 // When this MFE patches a user, the Orders MFE refreshes automatically.
-urlInvalidationManager.invalidateOn(
-  '/api/v1/users/*',
-  ['/api/v1/orders', '/api/v1/orders/*']
-);
+urlInvalidationManager.invalidateOn("/api/v1/users/*", [
+  "/api/v1/orders",
+  "/api/v1/orders/*",
+]);
 urlInvalidationManager.setDebug(true);
 
 export interface User {
@@ -28,16 +32,16 @@ export interface PaginatedResponse<T> {
 }
 
 export const api = createApi({
-  reducerPath: 'crossResourceApi',
-  baseQuery: fetchBaseQuery({ baseUrl: 'http://localhost:4000/api' }),
+  reducerPath: "crossResourceApi",
+  baseQuery: fetchBaseQuery({ baseUrl: "http://localhost:4000/api" }),
   endpoints: (builder) => ({
     getUsers: builder.query<PaginatedResponse<User>, void>({
-      query: () => '/v1/users',
+      query: () => "/v1/users",
     }),
     updateUser: builder.mutation<User, { id: number; name: string }>({
       query: ({ id, name }) => ({
         url: `/v1/users/${id}`,
-        method: 'PATCH',
+        method: "PATCH",
         body: { name },
       }),
     }),

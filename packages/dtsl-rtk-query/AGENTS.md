@@ -151,6 +151,7 @@ Transform your independent MFEs into a unified, efficient data-sharing ecosystem
 │  │                                                                             │  │
 │  │  ┌─────────────────────────────────────────────────────────────────────┐   │  │
 │  │  │                     URL Invalidation Manager                        │   │  │
+│  │  │              (window.__DTSL_URL_INVALIDATION_MANAGER__)             │   │  │
 │  │  │                                                                     │   │  │
 │  │  │  • Query URL registry          • Pattern matching (* and **)        │   │  │
 │  │  │  • REST convention rules       • Cross-resource mappings            │   │  │
@@ -159,13 +160,19 @@ Transform your independent MFEs into a unified, efficient data-sharing ecosystem
 │  └────────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                  │
 │  ┌────────────────────────────────────────────────────────────────────────────┐  │
-│  │                     GLOBAL STATE (window.__DTSL_RTK_QUERY_REGISTRY__)      │  │
+│  │                            GLOBAL STATE (window)                           │  │
 │  │                                                                             │  │
 │  │    ┌─────────────────────────────────────────────────────────────────┐     │  │
-│  │    │  apis: Map<reducerPath, ApiEntry>                               │     │  │
-│  │    │  stores: Map<reducerPath, Store>                                │     │  │
-│  │    │  refCounts: Map<cacheKey, { count, subscribers }>               │     │  │
-│  │    │  inFlightRequests: Map<cacheKey, Promise>                       │     │  │
+│  │    │  __DTSL_RTK_QUERY_REGISTRY__:                                   │     │  │
+│  │    │    apis: Map<reducerPath, ApiEntry>                              │     │  │
+│  │    │    stores: Map<reducerPath, Store>                               │     │  │
+│  │    │    refCounts: Map<cacheKey, { count, subscribers }>              │     │  │
+│  │    │    inFlightRequests: Map<cacheKey, Promise>                      │     │  │
+│  │    │                                                                  │     │  │
+│  │    │  __DTSL_URL_INVALIDATION_MANAGER__:                              │     │  │
+│  │    │    queryRegistry: Map<key, UrlPattern>                           │     │  │
+│  │    │    crossResourceMappings: CrossResourceInvalidation[]            │     │  │
+│  │    │    customRules: InvalidationRule[]                               │     │  │
 │  │    └─────────────────────────────────────────────────────────────────┘     │  │
 │  │                                                                             │  │
 │  └────────────────────────────────────────────────────────────────────────────┘  │
@@ -200,7 +207,7 @@ packages/dtsl-rtk-query/
 │   │   └── urlInvalidationMiddleware.ts # URL-based auto-invalidation
 │   │
 │   ├── invalidation/            # Invalidation system
-│   │   └── urlInvalidationManager.ts    # URL pattern matching & rules
+│   │   └── urlInvalidationManager.ts    # URL pattern matching & rules (window-level singleton)
 │   │
 │   └── types/
 │       └── index.ts             # Type definitions
@@ -812,6 +819,7 @@ Automatically invalidates queries based on mutation URL patterns, **eliminating 
 │   │   ✅ Configurable for complex relationships                             │   │
 │   │   ✅ Supports wildcard patterns (* and **)                              │   │
 │   │   ✅ Method-specific rules (POST, PUT, PATCH, DELETE)                   │   │
+│   │   ✅ Window-level singleton — survives Module Federation bundle splits  │   │
 │   │                                                                         │   │
 │   └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                 │
@@ -1020,10 +1028,10 @@ import {
   detectMfeName,
   isInMfeEnvironment,
 
-  // Managers (singletons)
+  // Managers (singletons — window-level to survive across MFE bundles)
   refCountManager,
   requestTracker,
-  urlInvalidationManager,  // URL-based auto-invalidation
+  urlInvalidationManager,  // URL-based auto-invalidation (window.__DTSL_URL_INVALIDATION_MANAGER__)
 
   // Middleware (for custom store setup)
   createCacheLifecycleMiddleware,
