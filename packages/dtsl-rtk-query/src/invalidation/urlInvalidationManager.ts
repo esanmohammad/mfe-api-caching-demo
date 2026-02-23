@@ -426,5 +426,17 @@ export class UrlInvalidationManager {
   }
 }
 
-// Global singleton instance
-export const urlInvalidationManager = new UrlInvalidationManager();
+// Window-level singleton so the instance is shared across MFE bundles
+// (module-level singletons break when Module Federation doesn't deduplicate the package)
+const MANAGER_KEY = '__DTSL_URL_INVALIDATION_MANAGER__';
+
+function getOrCreateManager(): UrlInvalidationManager {
+  const globalObj = typeof window !== 'undefined' ? window : globalThis;
+  const record = globalObj as unknown as Record<string, unknown>;
+  if (!record[MANAGER_KEY]) {
+    record[MANAGER_KEY] = new UrlInvalidationManager();
+  }
+  return record[MANAGER_KEY] as UrlInvalidationManager;
+}
+
+export const urlInvalidationManager = getOrCreateManager();
