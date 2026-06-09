@@ -1,77 +1,244 @@
-# MFE API Caching Demo
+<div align="center">
 
-Turborepo monorepo demonstrating Micro-Frontend (MFE) architecture with Module Federation and shared state management using **federated-query**.
+# federated-query
 
-## What is federated-query?
+### One cache. Every micro-frontend. Zero configuration.
 
-A drop-in replacement for Redux Toolkit Query that enables transparent **cache sharing**, **request coalescing**, and **unified invalidation** across independently deployed MFEs — with zero configuration.
+**A drop-in replacement for [RTK Query](https://redux-toolkit.js.org/rtk-query/overview) that makes data sharing across independently-deployed micro-frontends completely transparent.**
 
-```typescript
-// Just swap the import — that's it!
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](https://www.typescriptlang.org/)
+[![RTK Query](https://img.shields.io/badge/RTK%20Query-2.x-764abc.svg)](https://redux-toolkit.js.org/rtk-query/overview)
+[![Module Federation](https://img.shields.io/badge/Module%20Federation-ready-f53.svg)](https://module-federation.io/)
+
+```diff
 - import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 + import { createApi, fetchBaseQuery } from 'federated-query/react';
 ```
 
-### Key Features
+*That's the entire migration. Your hooks, endpoints, and options all keep working.*
 
-| Feature | Description |
-|---------|-------------|
-| **Request Coalescing** | Multiple MFEs requesting same data = 1 API call |
-| **Shared Cache** | Data loaded by one MFE is instantly available to others |
-| **Unified Invalidation** | Mutation in one MFE updates views across ALL MFEs |
-| **Reference Counting** | Prevents premature cache eviction |
-| **URL-Based Auto-Invalidation** | Automatic cache invalidation based on REST URL patterns — no tags needed |
-| **Base Query Routing** | MFEs with different baseUrls share the same reducerPath — endpoints are routed to the correct backend |
-| **Config Merging** | tagTypes from multiple MFEs are automatically merged |
+</div>
 
-## Tech Stack
+---
 
-React 18, TypeScript 5.4, Vite 5.4, Redux Toolkit 2.2, TailwindCSS 3.4, Turbo 2.3
+## The problem
 
-## Monorepo Structure
+In a typical micro-frontend setup, every MFE ships its own Redux store and its own RTK Query cache. So when three MFEs each need `GET /users/1`, you get:
+
+- 🔴 **three** identical network requests
+- 🔴 **three** copies of the same data in memory
+- 🔴 a mutation in one MFE that leaves the other two showing **stale** data
+- 🔴 brittle cross-team **tag coordination** to keep things in sync
+
+## The solution
+
+`federated-query` gives every MFE a **single shared cache** behind the exact RTK Query API you already know:
+
+<div align="center">
 
 ```
-apps/
-  host/                 # Shell app (port 3000)
-  mfe-profile/          # Profile MFE (port 3002)
-  mfe-orders/           # Orders MFE (port 3003)
-  mfe-admin/            # Admin MFE (port 3004)
-  mock-api/             # Express REST API (port 4000)
-  demo-cross-resource/  # Cross-resource invalidation demo (port 4006)
-  demo-tag-based/       # Tag-based invalidation demo (port 4007)
-  demo-list-*/          # URL-based auto-invalidation demos
+        MFE · Profile          MFE · Orders           MFE · Admin
+       useGetUser(1)          useGetUser(1)          useGetUser(1)
+            │                      │                      │
+            └──────────────────────┼──────────────────────┘
+                                   ▼
+                        ┌────────────────────┐
+                        │   federated-query  │
+                        │   ┌──────────────┐  │
+                        │   │ Shared Cache │  │   ← one entry for all MFEs
+                        │   │  user #1     │  │
+                        │   └──────────────┘  │
+                        └─────────┬──────────┘
+                                  ▼
+                         GET /api/users/1          ← one request, coalesced
+```
 
+</div>
+
+- ✅ one request serves every MFE
+- ✅ one cache → consistent data everywhere
+- ✅ a mutation in any MFE refreshes all of them — automatically
+- ✅ drop-in: same API, no tag coordination required
+
+---
+
+## Features
+
+| | Feature | What it does |
+|---|---|---|
+| 🔄 | **Request coalescing** | Concurrent requests for the same resource collapse into one network call |
+| 📦 | **Shared cache** | Data fetched by one MFE is instantly readable by every other MFE |
+| 🔔 | **Unified invalidation** | A mutation in one MFE updates the views in all of them |
+| 🎯 | **URL-based auto-invalidation** | Mutations invalidate related queries by REST URL pattern — **no tags needed** |
+| 🔗 | **Cross-resource rules** | Declare "a change to `/users/*` also busts `/orders/*`" in one line |
+| 🧭 | **Per-endpoint routing** | MFEs on different backends can still share one cache |
+| 🧩 | **100% RTK Query compatible** | Every hook, option, and pattern you already use still works |
+| 🪪 | **Per-MFE attribution** | Each request is tagged with its owning MFE for tracing & metrics |
+
+---
+
+## Quick start
+
+### 1 · Install
+
+```bash
+npm install federated-query
+# peers: @reduxjs/toolkit ^2 · react ^18 · react-dom ^18 · react-redux ^9
+```
+
+### 2 · Define your API — exactly like RTK Query
+
+```typescript
+// api.ts
+import { createApi, fetchBaseQuery } from 'federated-query/react';
+
+export const api = createApi({
+  reducerPath: 'api',                 // 🔑 use the SAME reducerPath in every MFE
+  baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
+  mfeOptions: { mfeName: 'profile' }, // optional: names this MFE for tracing
+  endpoints: (builder) => ({
+    getUser: builder.query({ query: (id) => `/users/${id}` }),
+    updateUser: builder.mutation({
+      query: ({ id, ...body }) => ({ url: `/users/${id}`, method: 'PATCH', body }),
+    }),
+  }),
+});
+
+export const { useGetUserQuery, useUpdateUserMutation } = api;
+```
+
+### 3 · Wrap your app
+
+The federated cache lives in a store the library manages for you — you **don't** add the API to your own store. Pass your own store only if your MFE has its own local state (it stays fully isolated):
+
+```tsx
+import { Provider } from 'federated-query/react';
+
+// No local state? No store needed:
+<Provider mfeName="profile"><App /></Provider>
+
+// Have local state? Pass it — the API cache is kept separate:
+<Provider store={localStore} mfeName="profile"><App /></Provider>
+```
+
+### 4 · Use your hooks — nothing new to learn
+
+```tsx
+const { data, isLoading } = useGetUserQuery(1);
+const [updateUser] = useUpdateUserMutation();
+```
+
+Any other MFE calling `useGetUserQuery(1)` now reads the **same cache entry** — and when `updateUser` runs, every MFE refreshes automatically. ✨
+
+---
+
+## Invalidation without tags
+
+Coordinating `tagTypes` across separate codebases is painful. `federated-query` watches mutation **URLs** and refreshes matching queries using standard REST conventions — no tags, no shared constants:
+
+| Mutation | Automatically refetches |
+|---|---|
+| `POST /users` | `GET /users` |
+| `PUT /users/1` | `GET /users` · `GET /users/1` |
+| `PATCH /users/1` | `GET /users` · `GET /users/1` |
+| `DELETE /users/1` | `GET /users` · `GET /users/1` |
+
+### Cross-resource relationships
+
+When a change ripples across resource types, declare it once at startup:
+
+```typescript
+import { urlInvalidationManager } from 'federated-query';
+
+// Renaming a user also refreshes order history (which shows the name)
+urlInvalidationManager.invalidateOn('/users/*', ['/orders', '/orders/*']);
+
+// Only on delete, bust inventory counts
+urlInvalidationManager.invalidateOn('/products/*', ['/inventory/*'], ['DELETE']);
+```
+
+> Cross-MFE invalidation operates within a shared `reducerPath`. Use the same `reducerPath` across the MFEs that should share a cache.
+
+---
+
+## Different backends, one cache
+
+MFEs can point at different services and still share a cache. Declare the same `reducerPath`; `federated-query` routes each endpoint to the backend of the MFE that defined it:
+
+```typescript
+// profile MFE → users service          orders MFE → orders service
+createApi({                              createApi({
+  reducerPath: 'api',                      reducerPath: 'api',        // same → shared cache
+  baseQuery: fetchBaseQuery({              baseQuery: fetchBaseQuery({
+    baseUrl: 'https://users.internal' }),    baseUrl: 'https://orders.internal' }),
+  endpoints: (b) => ({                     endpoints: (b) => ({
+    getUser: b.query({ … }) }),              getOrders: b.query({ … }) }),
+});                                      });
+// useGetUserQuery → users.internal · useGetOrdersQuery → orders.internal · cache & invalidation cross between them
+```
+
+---
+
+## How it works
+
+`federated-query` keeps one shared Redux store (on `window`, so it survives Module Federation bundle splits) holding the cache for **all** federated APIs. Generated hooks are bound to that store through a dedicated React context, while each MFE keeps its **own** store for its own local state — the two never collide.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Each MFE                                                          │
+│    <Provider store={localStore}>          ← your own local state   │
+│      <Provider store={sharedStore}>       ← federated API cache    │
+│         hooks read/write the shared store, dispatch invalidations  │
+└──────────────────────────────────────────────────────────────────┘
+        Registry · Request Coalescer · URL Invalidation Manager
+                     (window-level singletons)
+```
+
+📖 **Deep dive:** [`packages/federated-query/AGENTS.md`](packages/federated-query/AGENTS.md) · **API & recipes:** [`packages/federated-query/README.md`](packages/federated-query/README.md)
+
+---
+
+## This repository
+
+A Turborepo monorepo that develops `federated-query` alongside live, federated demos that prove each capability.
+
+```
 packages/
-  federated-query/       # federated-query — the core library
-  shared-api/           # API layer wrapper
-  ui/                   # Shared React components
-  utils/                # Utility functions
+  federated-query/     ⭐ the library
+apps/
+  demo-host/           Shell that composes 7 federated MFEs (one shared cache)
+  demo-list-{add,delete,update}/   URL-based auto-invalidation
+  demo-cr-{users,orders}/          Cross-resource invalidation (no tags)
+  demo-tb-{users,orders}/          Tag-based invalidation (fine-grained)
+  mock-api/            Express REST API
 ```
 
-## Getting Started
+### Run the demos
 
 ```bash
 yarn install
-
-# Start all apps + mock API
-yarn dev
-
-# Start demo apps only
-yarn demo:dev
-# Open http://localhost:4005
+yarn demo:dev          # starts the mock API + all demo MFEs
+# open http://localhost:4005  →  edit any panel, watch the others refresh
 ```
 
-## Demo Scenarios
+### Develop the library
 
-| Demo | Port | What It Tests |
-|------|------|---------------|
-| demo-list-add | 4002 | POST creates item, list auto-refreshes |
-| demo-list-update | 4003 | PUT/PATCH updates item, list + detail auto-refresh |
-| demo-list-delete | 4001 | DELETE removes item, list auto-refreshes |
-| demo-cross-resource | 4006 | Mutating Users also refreshes Orders via `invalidateOn()` |
-| demo-tag-based | 4007 | Fine-grained control: Rename User vs Create Order vs Transfer Account |
+```bash
+yarn build             # build every package & app (Turbo)
+cd packages/federated-query
+yarn test              # vitest — unit + cross-MFE integration suite
+yarn typecheck         # strict TypeScript
+```
 
-## Documentation
+**Tech stack:** React 18 · TypeScript 5.4 · Vite 5.4 · Redux Toolkit 2.x · Module Federation · Turbo
 
-- **[CLAUDE.md](./CLAUDE.md)** — AI coding assistant context
-- **[packages/federated-query/AGENTS.md](./packages/federated-query/AGENTS.md)** — Comprehensive library documentation
+---
+
+## License
+
+[MIT](LICENSE) © Esan Mohammad
+
+<div align="center">
+<sub>Built for micro-frontend architectures that deserve a single source of truth.</sub>
+</div>

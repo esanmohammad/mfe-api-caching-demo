@@ -325,10 +325,17 @@ export class UrlInvalidationManager {
   }
 
   /**
-   * Check if two URLs refer to the same resource
+   * Check if two URLs refer to the same concrete resource.
+   *
+   * Uses exact path equality (query string stripped) — NOT normalized patterns.
+   * Comparing normalized patterns would treat /users/1 and /users/2 as the same
+   * resource and over-invalidate every item query of a type on any single-item
+   * mutation.
    */
   private isSameResource(url1: string, url2: string): boolean {
-    return this.normalizeUrl(url1) === this.normalizeUrl(url2);
+    const a = url1.split("?")[0] ?? url1;
+    const b = url2.split("?")[0] ?? url2;
+    return a === b;
   }
 
   /**
@@ -381,14 +388,18 @@ export class UrlInvalidationManager {
     const cleanUrl = url.split("?")[0] ?? url;
     const cleanPattern = pattern.split("?")[0] ?? pattern;
 
-    // Convert pattern to regex
+    // Convert pattern to regex. Use a placeholder for ** so the subsequent
+    // single-segment * replacement doesn't corrupt the ".*" it would produce.
+    const DOUBLE_STAR = String.fromCharCode(0);
     const regexPattern = cleanPattern
       // Escape special regex characters except *
       .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-      // ** matches any path (including slashes)
-      .replace(/\*\*/g, ".*")
+      // ** matches any path (including slashes) — stash as placeholder first
+      .replace(/\*\*/g, DOUBLE_STAR)
       // * matches a single segment (no slashes)
-      .replace(/\*/g, "[^/]+");
+      .replace(/\*/g, "[^/]+")
+      // restore ** as ".*"
+      .replace(new RegExp(DOUBLE_STAR, "g"), ".*");
 
     const regex = new RegExp(`^${regexPattern}$`);
     return regex.test(cleanUrl);
@@ -399,6 +410,16 @@ export class UrlInvalidationManager {
    */
   clear(): void {
     this.queryRegistry.clear();
+  }
+
+  /**
+   * Full reset — clears registered queries, custom rules, and cross-resource
+   * mappings. Intended for tests.
+   */
+  reset(): void {
+    this.queryRegistry.clear();
+    this.customRules = [];
+    this.crossResourceMappings = [];
   }
 
   /**

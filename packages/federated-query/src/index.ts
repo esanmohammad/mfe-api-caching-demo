@@ -79,6 +79,18 @@ export {
   RequestTracker,
 } from './core/requestTracker';
 
+// Shared store & federated context (advanced / custom store setups)
+export {
+  getSharedStore,
+  injectApiIntoSharedStore,
+  isInjectedIntoSharedStore,
+  resetSharedStore,
+} from './core/sharedStore';
+export { getFederatedContext, getFederatedHooks } from './core/federatedContext';
+
+// Logging controls
+export { setDebugLogging, isDebugLogging, logger } from './core/logger';
+
 // Enhancers for custom base queries
 export { enhanceBaseQuery } from './enhancers/baseQueryEnhancer';
 export {

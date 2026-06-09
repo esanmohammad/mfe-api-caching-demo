@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     dts({
       include: ['src'],
+      exclude: ['src/__tests__/**', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
       outDir: 'dist',
     }),
   ],
@@ -17,7 +18,7 @@ export default defineConfig({
         index: resolve(__dirname, 'src/index.ts'),
         react: resolve(__dirname, 'src/react.ts'),
       },
-      name: 'DtslRtkQuery',
+      name: 'FederatedQuery',
       formats: ['es'],
     },
     rollupOptions: {

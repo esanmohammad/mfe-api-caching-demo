@@ -1,30 +1,37 @@
 /**
  * MFE-aware Provider
- * Wraps react-redux Provider with automatic MFE detection and cleanup
+ *
+ * Renders two react-redux Providers:
+ *   1. The MFE's OWN store on the default context — for its own local state.
+ *      Untouched by this library. Optional; a trivial store is used if omitted.
+ *   2. The single shared federated store on the federated context — backing all
+ *      federated API hooks, so the cache is shared across MFEs.
+ *
+ * In standalone mode no federated wrapping happens: the API is vanilla RTK Query
+ * on the default context, so the consumer's own store is used as-is.
  */
 
-import React, { useEffect, useRef, type ReactNode } from 'react';
+import React, { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
-import type { Store, EnhancedStore } from '@reduxjs/toolkit';
+import { configureStore, type Store, type EnhancedStore } from '@reduxjs/toolkit';
 import {
   subscribe,
   unsubscribe,
-  getGlobalRegistry,
-  getRegisteredStore,
+  getRegisteredReducerPaths,
 } from './core/globalRegistry';
-import {
-  setMfeContext,
-  clearMfeContext,
-  detectMfeName,
-  isInMfeEnvironment,
-} from './core/mfeContext';
+import { setMfeContext, clearMfeContext, detectMfeName } from './core/mfeContext';
 import { refCountManager } from './core/refCountManager';
+import { getSharedStore } from './core/sharedStore';
+import { getFederatedContext } from './core/federatedContext';
+import { logger } from './core/logger';
 
 export interface MfeProviderProps {
   /**
-   * Redux store instance
+   * The MFE's own Redux store, for its own local (non-API) state. Optional — if
+   * omitted, a trivial store is created. The federated API cache lives in the
+   * shared store and does NOT need to be added here.
    */
-  store: Store | EnhancedStore;
+  store?: Store | EnhancedStore;
   /**
    * React children
    */
@@ -34,43 +41,33 @@ export interface MfeProviderProps {
    */
   mfeName?: string;
   /**
-   * Disable MFE features (run as standalone app)
+   * Disable MFE features (run as a standalone app with the provided store).
    */
   standalone?: boolean;
 }
 
 /**
- * MFE-aware Redux Provider
- *
- * This is a drop-in replacement for react-redux's Provider.
- * It automatically detects MFE context and manages subscriptions
- * for proper cache sharing and cleanup.
+ * Create a minimal local store for MFEs that don't bring their own.
+ */
+function createDefaultLocalStore(): EnhancedStore {
+  return configureStore({
+    reducer: { __federated_query_local__: (state: Record<string, never> = {}) => state },
+  });
+}
+
+/**
+ * MFE-aware Redux Provider — a drop-in replacement for react-redux's Provider.
  *
  * @example
- * ```typescript
+ * ```tsx
  * import { Provider } from 'federated-query/react';
- * import { store } from './store';
  *
- * function App() {
- *   return (
- *     <Provider store={store}>
- *       <MyComponent />
- *     </Provider>
- *   );
- * }
+ * // No local state? No store needed:
+ * <Provider mfeName="checkout"><App /></Provider>
+ *
+ * // Have local state? Pass your own store (the API cache is NOT added to it):
+ * <Provider store={localStore} mfeName="checkout"><App /></Provider>
  * ```
- *
- * @example
- * // With explicit MFE name
- * <Provider store={store} mfeName="checkout-app">
- *   <CheckoutApp />
- * </Provider>
- *
- * @example
- * // Standalone mode (no MFE features)
- * <Provider store={store} standalone>
- *   <StandaloneApp />
- * </Provider>
  */
 export function Provider({
   store,
@@ -81,93 +78,55 @@ export function Provider({
   const mountedRef = useRef(false);
   const resolvedMfeName = mfeName ?? detectMfeName();
 
-  useEffect(() => {
-    // Skip MFE setup in standalone mode
-    if (standalone) {
-      return;
-    }
+  // Stable local store for this MFE's own state.
+  const localStore = useMemo(
+    () => store ?? createDefaultLocalStore(),
+    [store],
+  );
 
-    // Skip if already mounted (strict mode double-invoke protection)
-    if (mountedRef.current) {
-      return;
-    }
+  useEffect(() => {
+    if (standalone) return;
+    if (mountedRef.current) return; // StrictMode double-invoke guard
     mountedRef.current = true;
 
-    // Set MFE context for request tracking
     setMfeContext(resolvedMfeName);
 
-    // Subscribe to all registered APIs
-    const reducerPaths = getReducerPathsFromStore(store);
+    const reducerPaths = getRegisteredReducerPaths();
     for (const path of reducerPaths) {
       subscribe(path, resolvedMfeName);
     }
-
-    console.debug(
-      `[federated-query] Provider mounted: ${resolvedMfeName} (${reducerPaths.length} APIs)`
+    logger.debug(
+      `Provider mounted: ${resolvedMfeName} (${reducerPaths.length} federated APIs)`,
     );
 
-    // Cleanup on unmount
     return () => {
-      console.debug(`[federated-query] Provider unmounting: ${resolvedMfeName}`);
-
-      // Unsubscribe from all APIs
-      for (const path of reducerPaths) {
+      logger.debug(`Provider unmounting: ${resolvedMfeName}`);
+      for (const path of getRegisteredReducerPaths()) {
         unsubscribe(path, resolvedMfeName);
       }
-
-      // Clean up reference counts
       refCountManager.cleanupMfe(resolvedMfeName);
-
-      // Clear context
       clearMfeContext();
       mountedRef.current = false;
     };
-  }, [store, resolvedMfeName, standalone]);
+  }, [resolvedMfeName, standalone]);
 
-  // Determine which store to use
-  const effectiveStore = standalone ? store : getEffectiveStore(store, resolvedMfeName);
-
-  return <ReduxProvider store={effectiveStore}>{children}</ReduxProvider>;
-}
-
-/**
- * Get the effective store (shared or local)
- */
-function getEffectiveStore(
-  localStore: Store | EnhancedStore,
-  mfeName: string
-): Store | EnhancedStore {
-  // If not in MFE environment, use local store
-  if (!isInMfeEnvironment()) {
-    return localStore;
+  // Standalone: vanilla single-store Provider (default context).
+  if (standalone) {
+    return <ReduxProvider store={localStore}>{children}</ReduxProvider>;
   }
 
-  // Try to get shared store for the same reducer paths
-  const reducerPaths = getReducerPathsFromStore(localStore);
+  // Federated: local store (default context) wrapping the shared store
+  // (federated context, used by all API hooks).
+  const FederatedContext = getFederatedContext();
+  const sharedStore = getSharedStore();
 
-  for (const path of reducerPaths) {
-    const sharedStore = getRegisteredStore(path);
-    if (sharedStore) {
-      console.debug(
-        `[federated-query] ${mfeName} using shared store for ${path}`
-      );
-      return sharedStore;
-    }
-  }
-
-  // No shared store found, use local
-  return localStore;
-}
-
-/**
- * Extract reducer paths from a store
- */
-function getReducerPathsFromStore(store: Store | EnhancedStore): string[] {
-  const state = store.getState() as Record<string, unknown>;
-  const registry = getGlobalRegistry();
-
-  // Find reducer paths that are registered APIs
-  return Object.keys(state).filter((key) => registry.apis.has(key));
+  return (
+    <ReduxProvider store={localStore}>
+      <ReduxProvider store={sharedStore} context={FederatedContext}>
+        {children}
+      </ReduxProvider>
+    </ReduxProvider>
+  );
 }
 
 // Re-export the original Provider for edge cases

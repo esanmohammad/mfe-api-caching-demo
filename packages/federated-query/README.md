@@ -67,6 +67,7 @@ export const api = createApi({
   reducerPath: 'api', // use the same reducerPath across all MFEs
   baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
   tagTypes: ['User'],
+  mfeOptions: { mfeName: 'mfe-profile' }, // optional: names this MFE for tracing
   endpoints: (builder) => ({
     getUser: builder.query({
       query: (id) => `/users/${id}`,
@@ -84,19 +85,28 @@ export const { useGetUserQuery, useUpdateUserMutation } = api;
 
 ### 2. Wrap your MFE with `Provider`
 
+The federated cache lives in a store the library manages — you do **not** add the API
+reducer/middleware to your own store. Pass a store only if your MFE has its own local
+state; it stays fully isolated from the shared cache.
+
 ```tsx
 // App.tsx
 import { Provider } from 'federated-query/react';
-import { store } from './store';
 
 export function App() {
   return (
-    <Provider store={store} mfeName="mfe-profile">
+    // No local state? No store needed:
+    <Provider mfeName="mfe-profile">
       <YourComponents />
     </Provider>
   );
 }
 ```
+
+> **Migrating from a single-app RTK Query setup?** Remove `api.reducer` and
+> `api.middleware` from your `configureStore` call — `federated-query` owns the cache
+> store now. Keep your store only for your own (non-API) slices and pass it to
+> `<Provider store={…}>`.
 
 ### 3. Use hooks as normal
 
@@ -206,7 +216,8 @@ createApi({
   endpoints: () => ({}),
 
   mfeOptions: {
-    standalone: false,           // true → disables all MFE features
+    standalone: false,           // true → vanilla RTK Query, no sharing
+    mfeName: 'mfe-profile',      // names this MFE for deterministic attribution
     enableCoalescing: true,      // deduplicate in-flight requests
     enableTracking: true,        // track requests for observability
     enableUrlInvalidation: true, // URL-based auto-invalidation
@@ -216,19 +227,26 @@ createApi({
 })
 ```
 
+> **`keepUnusedDataFor`:** for smoother MFE mount/unmount, `federated-query` defaults
+> this to **300s** (RTK Query's own default is 60s). Pass your own value to opt out.
+
 ---
 
 ## `Provider` props
 
 ```tsx
 <Provider
-  store={store}         // required — your Redux store
+  store={localStore}    // optional — your own store for local (non-API) state
   mfeName="mfe-profile" // recommended — used in debug output and request headers
-  standalone={false}    // true → renders a plain react-redux Provider
+  standalone={false}    // true → plain react-redux Provider, no federation
 >
   {children}
 </Provider>
 ```
+
+`store` is optional: omit it and a trivial local store is created for you. Whatever you
+pass is used only for your MFE's own state — the federated API cache is always kept in
+the separate shared store.
 
 ---
 
@@ -266,9 +284,22 @@ urlInvalidationManager.setDebug(true);
 
 ## How it works (brief)
 
-`federated-query` stores a shared API registry on `window.__FEDERATED_QUERY_REGISTRY__`. When `createApi` is called with a `reducerPath` that already exists in the registry, it injects the new endpoints into the existing API instance and registers their base query route, rather than creating a second store. The `Provider` component subscribes the current MFE on mount and unsubscribes on unmount, maintaining reference counts so the cache is only evicted once no MFE is actively using it.
+`federated-query` keeps a single shared Redux store that holds the cache for **all**
+federated APIs, plus a registry of API instances — both on `window`, so they're shared
+across independently bundled MFE chunks even when Module Federation doesn't deduplicate
+the package. When `createApi` is called with a `reducerPath` that already exists, it
+injects the new endpoints into the existing API instance (routing them to that MFE's own
+base query) instead of creating a second store.
 
-Using `window` as the singleton host means the registry is shared across independently bundled MFE chunks even when Module Federation does not deduplicate the package.
+Generated hooks are bound to the shared store through a dedicated React context, so they
+read and write the shared cache regardless of which MFE renders them. Your own
+`<Provider store={…}>` keeps serving your MFE's local state on react-redux's default
+context — the two never collide.
+
+> **A note on reference counting.** `federated-query` tracks per-MFE subscribers for
+> observability (`getRegistryStats()`). Eviction itself is handled by RTK Query's native
+> subscription counting on the shared store, which already keeps data alive while any MFE
+> is using it and applies `keepUnusedDataFor` once the last subscriber leaves.
 
 ---
 

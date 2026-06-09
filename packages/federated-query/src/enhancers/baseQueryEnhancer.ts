@@ -6,9 +6,10 @@
 import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { requestTracker } from '../core/requestTracker';
 import { refCountManager } from '../core/refCountManager';
-import { getMfeContext, generateRequestId } from '../core/mfeContext';
+import { generateRequestId } from '../core/mfeContext';
 import { generateCacheKey } from './serializerEnhancer';
 import { urlInvalidationManager } from '../invalidation/urlInvalidationManager';
+import { logger } from '../core/logger';
 
 export interface EnhancedBaseQueryOptions {
   /**
@@ -41,6 +42,14 @@ export interface EnhancedBaseQueryOptions {
    * @default 'api'
    */
   reducerPath?: string;
+  /**
+   * Name of the MFE that owns the endpoints this base query serves.
+   *
+   * Captured at createApi/injection time and baked into the closure, so request
+   * attribution (headers, stats, subscriber tracking) is deterministic and does
+   * NOT depend on a mutable global that races when several MFEs are mounted.
+   */
+  mfeName?: string;
 }
 
 /**
@@ -63,10 +72,10 @@ export function enhanceBaseQuery<
     mfeHeaderName = 'X-MFE-Source',
     enableUrlInvalidation = true,
     reducerPath = 'api',
+    mfeName = null,
   } = options;
 
   return async (args, api, extraOptions) => {
-    const mfeName = getMfeContext();
     const requestId = generateRequestId();
     const cacheKey = generateCacheKey(api.endpoint, args);
     const isQuery = api.type === 'query';
@@ -79,9 +88,7 @@ export function enhanceBaseQuery<
         if (enableTracking) {
           requestTracker.recordCoalescedRequest(cacheKey, mfeName);
         }
-        console.debug(
-          `[federated-query] Coalesced request for ${cacheKey} (${mfeName ?? 'unknown'})`
-        );
+        logger.debug(`Coalesced request for ${cacheKey} (${mfeName ?? 'unknown'})`);
         try {
           const result = await existingRequest;
           return result as { data: Result; meta?: Meta } | { error: Error; meta?: Meta };

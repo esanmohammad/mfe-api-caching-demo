@@ -12,8 +12,6 @@ import {
   type FetchArgs,
 } from '@reduxjs/toolkit/query';
 import { getMfeContext, generateRequestId } from './core/mfeContext';
-import { requestTracker } from './core/requestTracker';
-import { generateCacheKey } from './enhancers/serializerEnhancer';
 
 /**
  * Extended options for MFE-aware fetchBaseQuery
@@ -121,49 +119,26 @@ export function fetchBaseQuery(
     return finalizeHeaders(headers);
   };
 
-  // Create the base fetch query
-  const baseFetch = rtkFetchBaseQuery({
+  // Create the base fetch query.
+  //
+  // NOTE: We intentionally do NOT add request tracking/coalescing here. When this
+  // fetchBaseQuery is used inside this package's createApi, `enhanceBaseQuery`
+  // wraps it and owns tracking + coalescing — wrapping here too would double-count
+  // every request. fetchBaseQuery's sole enhancement is MFE header injection via
+  // prepareHeaders (above), which is robust for the fetch transport.
+  return rtkFetchBaseQuery({
     ...rtkOptions,
     prepareHeaders: enhancedPrepareHeaders,
   });
-
-  // If standalone, return base fetch directly
-  if (standalone) {
-    return baseFetch;
-  }
-
-  // Wrap with tracking (coalescing is handled in createApi's baseQuery enhancer)
-  return async (args, api, extraOptions) => {
-    const requestId = generateRequestId();
-    const cacheKey = generateCacheKey(api.endpoint, args);
-    const mfeName = getMfeContext();
-
-    // Track request start (detailed tracking for debugging)
-    requestTracker.startRequest(requestId, {
-      cacheKey,
-      endpoint: api.endpoint,
-      type: api.type,
-      timestamp: Date.now(),
-      mfeSource: mfeName,
-    });
-
-    try {
-      const result = await baseFetch(args, api, extraOptions);
-
-      // Track completion
-      requestTracker.completeRequest(requestId);
-
-      return result;
-    } catch (error) {
-      // Track failure
-      requestTracker.failRequest(requestId, error);
-      throw error;
-    }
-  };
 }
 
 /**
- * Add MFE-specific headers
+ * Add MFE-specific headers.
+ *
+ * The authoritative `X-MFE-Source` value is set by `enhanceBaseQuery` from a
+ * captured (deterministic) MFE name and arrives here already on the headers. We
+ * therefore only fall back to the (best-effort) global context when no value is
+ * present yet — never overwriting the deterministic one.
  */
 function addMfeHeaders(
   headers: Headers,
@@ -172,10 +147,11 @@ function addMfeHeaders(
   addRequestIdHeader: boolean,
   requestIdHeaderName: string
 ): void {
-  const mfeName = getMfeContext();
-
-  if (addMfeHeader && mfeName) {
-    headers.set(mfeHeaderName, mfeName);
+  if (addMfeHeader && !headers.has(mfeHeaderName)) {
+    const mfeName = getMfeContext();
+    if (mfeName) {
+      headers.set(mfeHeaderName, mfeName);
+    }
   }
 
   if (addRequestIdHeader) {

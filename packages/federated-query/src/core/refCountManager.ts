@@ -1,7 +1,15 @@
 /**
- * Reference Count Manager
- * Tracks which MFEs are subscribed to which cache entries
- * Prevents premature cache garbage collection when multiple MFEs share data
+ * Reference Count Manager (observability)
+ *
+ * Tracks which MFEs are subscribed to which cache entries, exposed via
+ * `getRegistryStats()` for debugging and dashboards.
+ *
+ * IMPORTANT: this is advisory/metrics only — it does NOT gate cache eviction.
+ * Because all federated APIs live in a single shared store, RTK Query's own
+ * subscription counting on that store already keeps data alive as long as ANY
+ * component (in any MFE) is subscribed, and applies `keepUnusedDataFor` once the
+ * last subscriber leaves. `shouldKeepCache()` therefore reflects cross-MFE
+ * interest for reporting; it is not wired into the eviction path.
  */
 
 export interface RefCountState {
@@ -88,7 +96,8 @@ class RefCountManagerImpl {
   }
 
   /**
-   * Check if cache entry should be kept (has active subscribers)
+   * Advisory: whether any MFE still reports interest in this cache key.
+   * For observability only — does not control RTK Query's eviction.
    */
   shouldKeepCache(cacheKey: string): boolean {
     return this.getCount(cacheKey) > 0;

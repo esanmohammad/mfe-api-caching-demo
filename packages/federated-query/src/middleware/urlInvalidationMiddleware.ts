@@ -8,6 +8,7 @@
 import type { Middleware, UnknownAction } from "@reduxjs/toolkit";
 import { urlInvalidationManager } from "../invalidation/urlInvalidationManager";
 import { getRegisteredApi } from "../core/globalRegistry";
+import { logger } from "../core/logger";
 
 interface MutationAction extends UnknownAction {
   payload?: unknown;
@@ -143,8 +144,8 @@ export function createUrlInvalidationMiddleware(
     // Get the registered API to trigger refetches
     const api = getRegisteredApi(reducerPath);
     if (!api) {
-      console.warn(
-        `[federated-query] Cannot find registered API for ${reducerPath}, skipping URL invalidation`,
+      logger.warn(
+        `Cannot find registered API for ${reducerPath}, skipping URL invalidation`,
       );
       return result;
     }
@@ -171,8 +172,8 @@ export function createUrlInvalidationMiddleware(
       return result;
     }
 
-    console.debug(
-      `[federated-query] Auto-invalidating ${queriesToRefetch.length} queries after ${method} ${url}`,
+    logger.debug(
+      `Auto-invalidating ${queriesToRefetch.length} queries after ${method} ${url}`,
     );
 
     // Trigger refetch for each invalidated query using RTK Query's initiate
@@ -189,9 +190,7 @@ export function createUrlInvalidationMiddleware(
             subscribe: false, // Don't create new subscription
           }),
         );
-        console.debug(
-          `[federated-query] Refetching ${query.endpointName} (${query.cacheKey})`,
-        );
+        logger.debug(`Refetching ${query.endpointName} (${query.cacheKey})`);
       }
     }
 

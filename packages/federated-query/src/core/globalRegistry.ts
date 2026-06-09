@@ -8,6 +8,8 @@ import type { Store, EnhancedStore } from '@reduxjs/toolkit';
 import type { BaseQueryRouter } from './baseQueryRouter';
 import { refCountManager } from './refCountManager';
 import { requestTracker } from './requestTracker';
+import { resetSharedStore } from './sharedStore';
+import { logger } from './logger';
 
 const REGISTRY_KEY = '__FEDERATED_QUERY_REGISTRY__';
 
@@ -76,8 +78,8 @@ export function registerApi(
   const registry = getGlobalRegistry();
 
   if (registry.apis.has(reducerPath)) {
-    console.warn(
-      `[federated-query] API with reducerPath "${reducerPath}" already registered. Using existing instance.`
+    logger.warn(
+      `API with reducerPath "${reducerPath}" already registered. Using existing instance.`
     );
     return;
   }
@@ -95,7 +97,7 @@ export function registerApi(
   registry.apis.set(reducerPath, entry);
   registry.stores.set(reducerPath, store);
 
-  console.debug(`[federated-query] Registered API: ${reducerPath} (created by ${createdBy})`);
+  logger.debug(`Registered API: ${reducerPath} (created by ${createdBy})`);
 }
 
 /**
@@ -161,8 +163,8 @@ export function subscribe(reducerPath: string, mfeName: string): void {
 
   if (entry) {
     entry.subscribers.add(mfeName);
-    console.debug(
-      `[federated-query] ${mfeName} subscribed to ${reducerPath} (${entry.subscribers.size} subscribers)`
+    logger.debug(
+      `${mfeName} subscribed to ${reducerPath} (${entry.subscribers.size} subscribers)`
     );
   }
 }
@@ -176,8 +178,8 @@ export function unsubscribe(reducerPath: string, mfeName: string): void {
 
   if (entry) {
     entry.subscribers.delete(mfeName);
-    console.debug(
-      `[federated-query] ${mfeName} unsubscribed from ${reducerPath} (${entry.subscribers.size} subscribers)`
+    logger.debug(
+      `${mfeName} unsubscribed from ${reducerPath} (${entry.subscribers.size} subscribers)`
     );
 
     // Clean up ref counts for this MFE
@@ -248,4 +250,5 @@ export function resetRegistry(): void {
   delete (globalObj as Record<string, unknown>)[REGISTRY_KEY];
   refCountManager.reset();
   requestTracker.reset();
+  resetSharedStore();
 }

@@ -6,6 +6,7 @@
 import type { Middleware, UnknownAction } from '@reduxjs/toolkit';
 import { refCountManager } from '../core/refCountManager';
 import { getMfeContext } from '../core/mfeContext';
+import { logger } from '../core/logger';
 
 interface CacheAction extends UnknownAction {
   payload?: {
@@ -63,9 +64,7 @@ function handleCacheRemoval(cacheKey: string): void {
   const mfeName = getMfeContext();
   if (mfeName) {
     const newCount = refCountManager.decrement(cacheKey, mfeName);
-    console.debug(
-      `[federated-query] Cache removed: ${cacheKey}, ref count: ${newCount}`
-    );
+    logger.debug(`Cache removed: ${cacheKey}, ref count: ${newCount}`);
   } else {
     // If no MFE context, try to clean up all refs for this cache key
     refCountManager.clearCacheKey(cacheKey);
