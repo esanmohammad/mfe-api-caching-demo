@@ -6,7 +6,7 @@
  * URL auto-invalidation is disabled to keep the demo pure.
  */
 
-import { createApi, fetchBaseQuery } from '@dtsl/rtk-query/react';
+import { createApi, fetchBaseQuery } from 'federated-query/react';
 
 export interface Order {
   id: number;
@@ -25,7 +25,7 @@ export const api = createApi({
   // Same reducerPath → shares global registry store with Users MFE
   reducerPath: 'tagDemoApi',
   baseQuery: fetchBaseQuery({ baseUrl: 'http://localhost:4000/api' }),
-  mfeOptions: { enableUrlInvalidation: false },
+  mfeOptions: { enableUrlInvalidation: false, mfeName: 'mfe-tb-orders' },
   tagTypes: ['User', 'Order'],
   endpoints: (builder) => ({
     getOrders: builder.query<PaginatedResponse<Order>, void>({

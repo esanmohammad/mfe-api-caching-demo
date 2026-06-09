@@ -1,9 +1,9 @@
 /**
  * Shared API definition for demo apps
- * Uses @dtsl/rtk-query for transparent MFE support
+ * Uses federated-query for transparent MFE support
  */
 
-import { createApi, fetchBaseQuery } from "@dtsl/rtk-query/react";
+import { createApi, fetchBaseQuery } from "federated-query/react";
 
 export interface Item {
   id: number;
@@ -27,6 +27,7 @@ export interface CreateItemRequest {
 export const api = createApi({
   // IMPORTANT: Same reducerPath across all MFEs enables cache sharing
   reducerPath: "demoApi",
+  mfeOptions: { mfeName: "demo-list-add" },
   baseQuery: fetchBaseQuery({ baseUrl: "http://localhost:4000/api" }),
   tagTypes: ["Item", "ItemStats"],
   endpoints: (builder) => ({

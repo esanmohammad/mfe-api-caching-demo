@@ -7,7 +7,7 @@
  * NO TAGS are used — everything is driven by urlInvalidationManager.
  */
 
-import { createApi, fetchBaseQuery, urlInvalidationManager } from '@dtsl/rtk-query/react';
+import { createApi, fetchBaseQuery, urlInvalidationManager } from 'federated-query/react';
 
 // ============================================================
 // Configure cross-resource invalidation rule ONCE at startup

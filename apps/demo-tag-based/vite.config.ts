@@ -14,7 +14,7 @@ export default defineConfig({
         demoTbUsers: 'http://localhost:4010/assets/remoteEntry.js',
         demoTbOrders: 'http://localhost:4011/assets/remoteEntry.js',
       },
-      shared: ['react', 'react-dom', 'react-redux', '@reduxjs/toolkit', '@dtsl/rtk-query'],
+      shared: ['react', 'react-dom', 'react-redux', '@reduxjs/toolkit', 'federated-query'],
     }),
   ],
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },

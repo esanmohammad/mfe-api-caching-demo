@@ -10,7 +10,7 @@ import {
   createApi,
   fetchBaseQuery,
   urlInvalidationManager,
-} from "@dtsl/rtk-query/react";
+} from "federated-query/react";
 
 // Configure cross-resource rule once at startup.
 // When this MFE patches a user, the Orders MFE refreshes automatically.
@@ -33,6 +33,7 @@ export interface PaginatedResponse<T> {
 
 export const api = createApi({
   reducerPath: "crossResourceApi",
+  mfeOptions: { mfeName: "mfe-cr-users" },
   baseQuery: fetchBaseQuery({ baseUrl: "http://localhost:4000/api" }),
   endpoints: (builder) => ({
     getUsers: builder.query<PaginatedResponse<User>, void>({

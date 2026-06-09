@@ -10,7 +10,7 @@ export default defineConfig({
       name: 'demoTbOrders',
       filename: 'remoteEntry.js',
       exposes: { './App': './src/App.tsx' },
-      shared: ['react', 'react-dom', 'react-redux', '@reduxjs/toolkit', '@dtsl/rtk-query'],
+      shared: ['react', 'react-dom', 'react-redux', '@reduxjs/toolkit', 'federated-query'],
     }),
   ],
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },

@@ -7,15 +7,14 @@
  * - Cache invalidation (delete triggers refresh in all MFEs)
  */
 
-import { Provider } from '@dtsl/rtk-query/react';
-import { store } from './store';
+import { Provider } from 'federated-query/react';
 import { useGetItemsQuery, useDeleteItemMutation, Item } from './api';
 
 const MFE_NAME = 'demo-list-delete';
 
 function App() {
   return (
-    <Provider store={store} mfeName={MFE_NAME}>
+    <Provider mfeName={MFE_NAME}>
       <ListContent />
     </Provider>
   );

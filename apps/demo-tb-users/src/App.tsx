@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Provider } from '@dtsl/rtk-query/react';
-import { store } from './store';
+import { Provider } from 'federated-query/react';
 import { useGetUsersQuery, useRenameUserMutation, User } from './api';
 
 function UsersContent() {
@@ -83,7 +82,7 @@ function UsersContent() {
 
 function App() {
   return (
-    <Provider store={store} mfeName="mfe-tb-users">
+    <Provider mfeName="mfe-tb-users">
       <UsersContent />
     </Provider>
   );

@@ -13,7 +13,7 @@
  * demo-tb-orders will inject getOrders with providesTags: [Order].
  */
 
-import { createApi, fetchBaseQuery } from '@dtsl/rtk-query/react';
+import { createApi, fetchBaseQuery } from 'federated-query/react';
 
 export interface User {
   id: number;
@@ -24,7 +24,7 @@ export interface User {
 export const api = createApi({
   reducerPath: 'tagDemoApi',
   baseQuery: fetchBaseQuery({ baseUrl: 'http://localhost:4000/api' }),
-  mfeOptions: { enableUrlInvalidation: false },
+  mfeOptions: { enableUrlInvalidation: false, mfeName: 'demo-tag-based-host' },
   tagTypes: ['User', 'Order'],
   endpoints: (builder) => ({
     // Invalidates BOTH tags → both sub-MFE apps refresh

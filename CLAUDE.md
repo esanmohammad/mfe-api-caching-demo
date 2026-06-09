@@ -54,7 +54,7 @@ apps/
   demo-tag-based/    # Demo: Tag-based invalidation with fine-grained control (port 4007)
 
 packages/
-  dtsl-rtk-query/    # @dtsl/rtk-query - RTK Query wrapper for MFEs (core library) ⭐
+  federated-query/    # federated-query - RTK Query wrapper for MFEs (core library) ⭐
   shared-api/        # @repo/shared-api - API layer wrapper
   ui/                # @repo/ui - Shared React components
   utils/             # @repo/utils - Utility functions
@@ -68,9 +68,9 @@ Host app consumes remote MFEs via `@originjs/vite-plugin-federation`:
 - Shared dependencies (react, react-dom, react-redux, @reduxjs/toolkit) are deduplicated
 - MFEs can run standalone for development or as federated remotes
 
-## Core Package: @dtsl/rtk-query
+## Core Package: federated-query
 
-> **For comprehensive documentation, see: `packages/dtsl-rtk-query/AGENTS.md`**
+> **For comprehensive documentation, see: `packages/federated-query/AGENTS.md`**
 
 This is the central innovation of this demo - a drop-in replacement for Redux Toolkit Query with transparent MFE support.
 
@@ -99,7 +99,7 @@ DELETE /users/123     ───►  GET /users + GET /users/123
 
 Cross-resource invalidation for complex relationships:
 ```typescript
-import { urlInvalidationManager } from '@dtsl/rtk-query';
+import { urlInvalidationManager } from 'federated-query';
 
 // When any user is modified, also invalidate orders
 urlInvalidationManager.invalidateOn('/users/*', ['/orders', '/orders/*']);
@@ -110,7 +110,7 @@ urlInvalidationManager.invalidateOn('/users/*', ['/orders', '/orders/*']);
 ```typescript
 // Replace imports - that's it!
 - import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-+ import { createApi, fetchBaseQuery } from '@dtsl/rtk-query/react';
++ import { createApi, fetchBaseQuery } from 'federated-query/react';
 ```
 
 Key exports: `createApi`, `fetchBaseQuery`, `Provider`, `urlInvalidationManager`
@@ -119,7 +119,7 @@ Key exports: `createApi`, `fetchBaseQuery`, `Provider`, `urlInvalidationManager`
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                           @dtsl/rtk-query Architecture                        │
+│                           federated-query Architecture                        │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │  APPLICATION LAYER: MFE-Profile, MFE-Orders, MFE-Admin                       │
 │           │                  │                  │                            │
@@ -134,14 +134,14 @@ Key exports: `createApi`, `fetchBaseQuery`, `Provider`, `urlInvalidationManager`
 │              URL Invalidation Manager (pattern matching)                     │
 │           │                                                                  │
 │           ▼                                                                  │
-│  GLOBAL STATE: window.__DTSL_RTK_QUERY_REGISTRY__                            │
+│  GLOBAL STATE: window.__FEDERATED_QUERY_REGISTRY__                            │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Key Files
 
 ```
-packages/dtsl-rtk-query/src/
+packages/federated-query/src/
 ├── createApi.ts                  # Enhanced createApi wrapper
 ├── fetchBaseQuery.ts             # Enhanced fetchBaseQuery
 ├── Provider.tsx                  # MFE-aware Provider

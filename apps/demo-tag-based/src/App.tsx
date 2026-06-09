@@ -12,8 +12,7 @@
  */
 
 import React, { Suspense } from 'react';
-import { Provider } from '@dtsl/rtk-query/react';
-import { store } from './store';
+import { Provider } from 'federated-query/react';
 import { useTransferAccountMutation } from './api';
 
 const TbUsers = React.lazy(() => import('demoTbUsers/App'));
@@ -58,7 +57,7 @@ function DoBothButton() {
 
 function App() {
   return (
-    <Provider store={store} mfeName="demo-tag-based-host">
+    <Provider mfeName="demo-tag-based-host">
       <div className="min-h-screen bg-gray-100">
         <header className="bg-gradient-to-r from-orange-500 to-teal-600 text-white shadow-lg">
           <div className="max-w-5xl mx-auto px-4 py-6">

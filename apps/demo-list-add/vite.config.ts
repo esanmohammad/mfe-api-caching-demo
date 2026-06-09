@@ -12,7 +12,7 @@ export default defineConfig({
       exposes: {
         './App': './src/App.tsx',
       },
-      shared: ['react', 'react-dom', 'react-redux', '@reduxjs/toolkit', '@dtsl/rtk-query'],
+      shared: ['react', 'react-dom', 'react-redux', '@reduxjs/toolkit', 'federated-query'],
     }),
   ],
   resolve: {
