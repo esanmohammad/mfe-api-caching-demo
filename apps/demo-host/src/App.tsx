@@ -1,10 +1,10 @@
 /**
- * Demo Host — showcases all @dtsl/rtk-query invalidation patterns
+ * Demo Host — showcases all federated-query invalidation patterns
  * across 7 separate MFE apps sharing cache via the global registry.
  */
 
 import React, { Suspense } from "react";
-import { Provider } from "@dtsl/rtk-query/react";
+import { Provider } from "federated-query/react";
 import { store } from "./store";
 import { useTransferAccountMutation } from "./api";
 
@@ -86,7 +86,7 @@ function App() {
       <div className="min-h-screen bg-gray-100">
         <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg">
           <div className="max-w-7xl mx-auto px-4 py-6">
-            <h1 className="text-3xl font-bold">@dtsl/rtk-query Demo</h1>
+            <h1 className="text-3xl font-bold">federated-query Demo</h1>
             <p className="text-indigo-200 mt-1">
               7 separate MFE apps · 3 invalidation patterns · 1 shared cache
             </p>
@@ -146,7 +146,7 @@ function App() {
         </main>
 
         <footer className="max-w-7xl mx-auto px-4 py-6 text-center text-gray-400 text-xs border-t border-gray-200 mt-4">
-          All MFEs share cache via <code>window.__DTSL_RTK_QUERY_REGISTRY__</code> · @dtsl/rtk-query
+          All MFEs share cache via <code>window.__FEDERATED_QUERY_REGISTRY__</code> · federated-query
         </footer>
       </div>
     </Provider>

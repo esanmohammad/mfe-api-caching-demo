@@ -7,7 +7,7 @@
  * - Cache invalidation (delete triggers refresh in all MFEs)
  */
 
-import { Provider } from '@dtsl/rtk-query/react';
+import { Provider } from 'federated-query/react';
 import { store } from './store';
 import { useGetItemsQuery, useDeleteItemMutation, Item } from './api';
 

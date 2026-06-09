@@ -6,7 +6,7 @@
  * URL auto-invalidation is disabled to keep the demo pure.
  */
 
-import { createApi, fetchBaseQuery } from '@dtsl/rtk-query/react';
+import { createApi, fetchBaseQuery } from 'federated-query/react';
 
 export interface Order {
   id: number;

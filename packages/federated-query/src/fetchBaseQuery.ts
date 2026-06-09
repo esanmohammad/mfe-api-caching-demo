@@ -58,7 +58,7 @@ export interface MfeFetchBaseQueryArgs extends FetchBaseQueryArgs {
  *
  * @example
  * ```typescript
- * import { createApi, fetchBaseQuery } from '@dtsl/rtk-query';
+ * import { createApi, fetchBaseQuery } from 'federated-query';
  *
  * const api = createApi({
  *   baseQuery: fetchBaseQuery({

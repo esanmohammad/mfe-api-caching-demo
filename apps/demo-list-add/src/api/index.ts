@@ -1,9 +1,9 @@
 /**
  * Shared API definition for demo apps
- * Uses @dtsl/rtk-query for transparent MFE support
+ * Uses federated-query for transparent MFE support
  */
 
-import { createApi, fetchBaseQuery } from "@dtsl/rtk-query/react";
+import { createApi, fetchBaseQuery } from "federated-query/react";
 
 export interface Item {
   id: number;

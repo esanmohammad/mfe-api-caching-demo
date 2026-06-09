@@ -48,7 +48,7 @@ export interface MfeProviderProps {
  *
  * @example
  * ```typescript
- * import { Provider } from '@dtsl/rtk-query/react';
+ * import { Provider } from 'federated-query/react';
  * import { store } from './store';
  *
  * function App() {
@@ -103,12 +103,12 @@ export function Provider({
     }
 
     console.debug(
-      `[@dtsl/rtk-query] Provider mounted: ${resolvedMfeName} (${reducerPaths.length} APIs)`
+      `[federated-query] Provider mounted: ${resolvedMfeName} (${reducerPaths.length} APIs)`
     );
 
     // Cleanup on unmount
     return () => {
-      console.debug(`[@dtsl/rtk-query] Provider unmounting: ${resolvedMfeName}`);
+      console.debug(`[federated-query] Provider unmounting: ${resolvedMfeName}`);
 
       // Unsubscribe from all APIs
       for (const path of reducerPaths) {
@@ -149,7 +149,7 @@ function getEffectiveStore(
     const sharedStore = getRegisteredStore(path);
     if (sharedStore) {
       console.debug(
-        `[@dtsl/rtk-query] ${mfeName} using shared store for ${path}`
+        `[federated-query] ${mfeName} using shared store for ${path}`
       );
       return sharedStore;
     }

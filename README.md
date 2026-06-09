@@ -1,15 +1,15 @@
 # MFE API Caching Demo
 
-Turborepo monorepo demonstrating Micro-Frontend (MFE) architecture with Module Federation and shared state management using **@dtsl/rtk-query**.
+Turborepo monorepo demonstrating Micro-Frontend (MFE) architecture with Module Federation and shared state management using **federated-query**.
 
-## What is @dtsl/rtk-query?
+## What is federated-query?
 
 A drop-in replacement for Redux Toolkit Query that enables transparent **cache sharing**, **request coalescing**, and **unified invalidation** across independently deployed MFEs — with zero configuration.
 
 ```typescript
 // Just swap the import — that's it!
 - import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-+ import { createApi, fetchBaseQuery } from '@dtsl/rtk-query/react';
++ import { createApi, fetchBaseQuery } from 'federated-query/react';
 ```
 
 ### Key Features
@@ -42,7 +42,7 @@ apps/
   demo-list-*/          # URL-based auto-invalidation demos
 
 packages/
-  dtsl-rtk-query/       # @dtsl/rtk-query — the core library
+  federated-query/       # federated-query — the core library
   shared-api/           # API layer wrapper
   ui/                   # Shared React components
   utils/                # Utility functions
@@ -74,4 +74,4 @@ yarn demo:dev
 ## Documentation
 
 - **[CLAUDE.md](./CLAUDE.md)** — AI coding assistant context
-- **[packages/dtsl-rtk-query/AGENTS.md](./packages/dtsl-rtk-query/AGENTS.md)** — Comprehensive library documentation
+- **[packages/federated-query/AGENTS.md](./packages/federated-query/AGENTS.md)** — Comprehensive library documentation

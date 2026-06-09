@@ -147,7 +147,7 @@ export function isInMfeEnvironment(): boolean {
     '__webpack_share_scopes__' in window;
 
   // Check for our registry (another MFE already initialized)
-  const hasRegistry = '__DTSL_RTK_QUERY_REGISTRY__' in window;
+  const hasRegistry = '__FEDERATED_QUERY_REGISTRY__' in window;
 
   return hasModuleFederation || hasRegistry;
 }

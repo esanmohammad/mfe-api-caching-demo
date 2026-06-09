@@ -64,7 +64,7 @@ function warnOnKeepUnusedDataDivergence(
     incomingKeepUnusedDataFor !== existing.keepUnusedDataFor
   ) {
     console.warn(
-      `[@dtsl/rtk-query] Config divergence on "${reducerPath}" (from ${mfeName}): keepUnusedDataFor differs (existing: ${existing.keepUnusedDataFor}, incoming: ${incomingKeepUnusedDataFor}). Using existing value.`,
+      `[federated-query] Config divergence on "${reducerPath}" (from ${mfeName}): keepUnusedDataFor differs (existing: ${existing.keepUnusedDataFor}, incoming: ${incomingKeepUnusedDataFor}). Using existing value.`,
     );
   }
 }
@@ -82,7 +82,7 @@ function warnOnKeepUnusedDataDivergence(
  *
  * @example
  * ```typescript
- * import { createApi, fetchBaseQuery } from '@dtsl/rtk-query';
+ * import { createApi, fetchBaseQuery } from 'federated-query';
  *
  * export const api = createApi({
  *   reducerPath: 'api',
@@ -132,7 +132,7 @@ export function createApi<
       const existingConfig = getRegisteredConfig(reducerPath);
 
       console.debug(
-        `[@dtsl/rtk-query] Found existing API instance: ${reducerPath}, injecting endpoints (from ${mfeName})`,
+        `[federated-query] Found existing API instance: ${reducerPath}, injecting endpoints (from ${mfeName})`,
       );
 
       // 1. Merge tagTypes via enhanceEndpoints
@@ -147,7 +147,7 @@ export function createApi<
         const mergedTagTypes = [...existingTagTypes, ...newTags];
         updateConfigSnapshot(reducerPath, { tagTypes: mergedTagTypes });
         console.debug(
-          `[@dtsl/rtk-query] Merged ${newTags.length} new tagType(s) into "${reducerPath}": [${newTags.join(", ")}]`,
+          `[federated-query] Merged ${newTags.length} new tagType(s) into "${reducerPath}": [${newTags.join(", ")}]`,
         );
       }
 
@@ -185,7 +185,7 @@ export function createApi<
           });
           router.addRoutes(newEndpointNames, enhancedIncomingBaseQuery);
           console.debug(
-            `[@dtsl/rtk-query] Routed ${newEndpointNames.length} endpoint(s) from ${mfeName} to its own baseQuery: [${newEndpointNames.join(", ")}]`,
+            `[federated-query] Routed ${newEndpointNames.length} endpoint(s) from ${mfeName} to its own baseQuery: [${newEndpointNames.join(", ")}]`,
           );
         }
       }

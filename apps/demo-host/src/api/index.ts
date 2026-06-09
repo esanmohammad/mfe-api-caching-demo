@@ -10,7 +10,7 @@
  * Only transferAccount is needed here for the "Do Both" button.
  */
 
-import { createApi, fetchBaseQuery } from '@dtsl/rtk-query/react';
+import { createApi, fetchBaseQuery } from 'federated-query/react';
 
 export interface User {
   id: number;

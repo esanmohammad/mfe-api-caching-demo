@@ -64,7 +64,7 @@ function handleCacheRemoval(cacheKey: string): void {
   if (mfeName) {
     const newCount = refCountManager.decrement(cacheKey, mfeName);
     console.debug(
-      `[@dtsl/rtk-query] Cache removed: ${cacheKey}, ref count: ${newCount}`
+      `[federated-query] Cache removed: ${cacheKey}, ref count: ${newCount}`
     );
   } else {
     // If no MFE context, try to clean up all refs for this cache key

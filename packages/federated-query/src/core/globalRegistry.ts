@@ -9,7 +9,7 @@ import type { BaseQueryRouter } from './baseQueryRouter';
 import { refCountManager } from './refCountManager';
 import { requestTracker } from './requestTracker';
 
-const REGISTRY_KEY = '__DTSL_RTK_QUERY_REGISTRY__';
+const REGISTRY_KEY = '__FEDERATED_QUERY_REGISTRY__';
 
 /**
  * Snapshot of config provided at API creation time.
@@ -77,7 +77,7 @@ export function registerApi(
 
   if (registry.apis.has(reducerPath)) {
     console.warn(
-      `[@dtsl/rtk-query] API with reducerPath "${reducerPath}" already registered. Using existing instance.`
+      `[federated-query] API with reducerPath "${reducerPath}" already registered. Using existing instance.`
     );
     return;
   }
@@ -95,7 +95,7 @@ export function registerApi(
   registry.apis.set(reducerPath, entry);
   registry.stores.set(reducerPath, store);
 
-  console.debug(`[@dtsl/rtk-query] Registered API: ${reducerPath} (created by ${createdBy})`);
+  console.debug(`[federated-query] Registered API: ${reducerPath} (created by ${createdBy})`);
 }
 
 /**
@@ -162,7 +162,7 @@ export function subscribe(reducerPath: string, mfeName: string): void {
   if (entry) {
     entry.subscribers.add(mfeName);
     console.debug(
-      `[@dtsl/rtk-query] ${mfeName} subscribed to ${reducerPath} (${entry.subscribers.size} subscribers)`
+      `[federated-query] ${mfeName} subscribed to ${reducerPath} (${entry.subscribers.size} subscribers)`
     );
   }
 }
@@ -177,7 +177,7 @@ export function unsubscribe(reducerPath: string, mfeName: string): void {
   if (entry) {
     entry.subscribers.delete(mfeName);
     console.debug(
-      `[@dtsl/rtk-query] ${mfeName} unsubscribed from ${reducerPath} (${entry.subscribers.size} subscribers)`
+      `[federated-query] ${mfeName} unsubscribed from ${reducerPath} (${entry.subscribers.size} subscribers)`
     );
 
     // Clean up ref counts for this MFE

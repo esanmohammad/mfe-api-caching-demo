@@ -22,7 +22,7 @@ export default defineConfig({
         "react-dom",
         "react-redux",
         "@reduxjs/toolkit",
-        "@dtsl/rtk-query",
+        "federated-query",
       ],
     }),
   ],

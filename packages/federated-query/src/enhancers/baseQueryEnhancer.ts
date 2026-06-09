@@ -80,7 +80,7 @@ export function enhanceBaseQuery<
           requestTracker.recordCoalescedRequest(cacheKey, mfeName);
         }
         console.debug(
-          `[@dtsl/rtk-query] Coalesced request for ${cacheKey} (${mfeName ?? 'unknown'})`
+          `[federated-query] Coalesced request for ${cacheKey} (${mfeName ?? 'unknown'})`
         );
         try {
           const result = await existingRequest;

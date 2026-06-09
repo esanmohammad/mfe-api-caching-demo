@@ -107,7 +107,7 @@ export class UrlInvalidationManager {
 
     if (this.debug) {
       console.debug(
-        `[@dtsl/rtk-query] Registered query: ${method} ${url} -> endpoint: ${endpointName}`,
+        `[federated-query] Registered query: ${method} ${url} -> endpoint: ${endpointName}`,
       );
     }
   }
@@ -203,7 +203,7 @@ export class UrlInvalidationManager {
 
     if (this.debug && endpointsToInvalidate.size > 0) {
       console.debug(
-        `[@dtsl/rtk-query] Invalidating ${endpointsToInvalidate.size} endpoints for ${mutationMethod} ${mutationUrl}:`,
+        `[federated-query] Invalidating ${endpointsToInvalidate.size} endpoints for ${mutationMethod} ${mutationUrl}:`,
         Array.from(endpointsToInvalidate),
       );
     }
@@ -362,7 +362,7 @@ export class UrlInvalidationManager {
 
     if (this.debug) {
       console.debug(
-        `[@dtsl/rtk-query] Added cross-resource invalidation: ${sourcePattern} -> ${targetPatterns.join(", ")}`,
+        `[federated-query] Added cross-resource invalidation: ${sourcePattern} -> ${targetPatterns.join(", ")}`,
       );
     }
   }
@@ -428,7 +428,7 @@ export class UrlInvalidationManager {
 
 // Window-level singleton so the instance is shared across MFE bundles
 // (module-level singletons break when Module Federation doesn't deduplicate the package)
-const MANAGER_KEY = '__DTSL_URL_INVALIDATION_MANAGER__';
+const MANAGER_KEY = '__FEDERATED_QUERY_INVALIDATION_MANAGER__';
 
 function getOrCreateManager(): UrlInvalidationManager {
   const globalObj = typeof window !== 'undefined' ? window : globalThis;

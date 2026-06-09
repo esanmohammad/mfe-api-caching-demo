@@ -1,4 +1,4 @@
-# @dtsl/rtk-query
+# federated-query
 
 > **A drop-in replacement for Redux Toolkit Query with transparent Micro-Frontend (MFE) support**
 
@@ -42,7 +42,7 @@ Transform your independent MFEs into a unified, efficient data-sharing ecosystem
 │           └─────────────────────┼─────────────────────┘                     │
 │                                 │                                           │
 │                    ┌────────────▼────────────┐                              │
-│                    │    @dtsl/rtk-query      │                              │
+│                    │    federated-query      │                              │
 │                    │  ┌──────────────────┐   │                              │
 │                    │  │  Shared Cache    │   │                              │
 │                    │  │  ┌────────────┐  │   │                              │
@@ -64,7 +64,7 @@ Transform your independent MFEs into a unified, efficient data-sharing ecosystem
 - 🔴 Wasted memory with redundant caches
 - 🔴 Complex state synchronization
 
-**Solution**: `@dtsl/rtk-query` provides transparent cache sharing across MFEs:
+**Solution**: `federated-query` provides transparent cache sharing across MFEs:
 - ✅ Single API request serves all MFEs
 - ✅ Unified cache = consistent data everywhere
 - ✅ Automatic cache invalidation across MFEs
@@ -92,7 +92,7 @@ Transform your independent MFEs into a unified, efficient data-sharing ecosystem
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│                           @dtsl/rtk-query Architecture                           │
+│                           federated-query Architecture                           │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
 │  ┌────────────────────────────────────────────────────────────────────────────┐  │
@@ -183,7 +183,7 @@ Transform your independent MFEs into a unified, efficient data-sharing ecosystem
 ### Package Structure
 
 ```
-packages/dtsl-rtk-query/
+packages/federated-query/
 ├── src/
 │   ├── index.ts                 # Main exports
 │   ├── react.ts                 # React-specific exports
@@ -222,10 +222,10 @@ packages/dtsl-rtk-query/
 
 ```bash
 # Using yarn
-yarn add @dtsl/rtk-query
+yarn add federated-query
 
 # Using npm
-npm install @dtsl/rtk-query
+npm install federated-query
 ```
 
 **Peer Dependencies:**
@@ -246,14 +246,14 @@ npm install @dtsl/rtk-query
 
 ```diff
 - import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-+ import { createApi, fetchBaseQuery } from '@dtsl/rtk-query/react';
++ import { createApi, fetchBaseQuery } from 'federated-query/react';
 ```
 
 ### 2. Define Your API (Same as RTK Query)
 
 ```typescript
 // api.ts
-import { createApi, fetchBaseQuery } from '@dtsl/rtk-query/react';
+import { createApi, fetchBaseQuery } from 'federated-query/react';
 
 export const api = createApi({
   reducerPath: 'api',  // 🔑 Use same name across ALL MFEs
@@ -282,7 +282,7 @@ export const { useGetUserQuery, useUpdateUserMutation } = api;
 
 ```tsx
 // App.tsx
-import { Provider } from '@dtsl/rtk-query/react';
+import { Provider } from 'federated-query/react';
 import { store } from './store';
 
 export function App() {
@@ -776,7 +776,7 @@ Automatically invalidates queries based on mutation URL patterns, **eliminating 
 │   │                                                                         │   │
 │   │   For non-standard relationships (e.g., user changes affect orders):    │   │
 │   │                                                                         │   │
-│   │   import { urlInvalidationManager } from '@dtsl/rtk-query';             │   │
+│   │   import { urlInvalidationManager } from 'federated-query';             │   │
 │   │                                                                         │   │
 │   │   // When any user is modified, also invalidate orders                  │   │
 │   │   urlInvalidationManager.invalidateOn(                                  │   │
@@ -830,7 +830,7 @@ Automatically invalidates queries based on mutation URL patterns, **eliminating 
 
 ```typescript
 // app-init.ts - Configure once at app startup
-import { urlInvalidationManager } from '@dtsl/rtk-query';
+import { urlInvalidationManager } from 'federated-query';
 
 // Cross-resource invalidations
 urlInvalidationManager.invalidateOn('/users/*', ['/orders', '/orders/*']);
@@ -996,7 +996,7 @@ router.addRoutes(newEndpoints, enhancedIncomingBaseQuery);
 
 ### Exports
 
-#### Main Exports (`@dtsl/rtk-query`)
+#### Main Exports (`federated-query`)
 
 ```typescript
 import {
@@ -1036,7 +1036,7 @@ import {
   // Middleware (for custom store setup)
   createCacheLifecycleMiddleware,
   createUrlInvalidationMiddleware,
-} from '@dtsl/rtk-query';
+} from 'federated-query';
 
 // Type exports
 import type {
@@ -1046,10 +1046,10 @@ import type {
   InvalidationRule,
   UrlInvalidationOptions,
   CrossResourceInvalidation,
-} from '@dtsl/rtk-query';
+} from 'federated-query';
 ```
 
-#### React Exports (`@dtsl/rtk-query/react`)
+#### React Exports (`federated-query/react`)
 
 ```typescript
 import {
@@ -1078,7 +1078,7 @@ import {
   // Middleware
   createCacheLifecycleMiddleware,
   createUrlInvalidationMiddleware,
-} from '@dtsl/rtk-query/react';
+} from 'federated-query/react';
 ```
 
 ### createApi Options
@@ -1122,7 +1122,7 @@ createApi({
 ### Get Registry Statistics
 
 ```typescript
-import { getRegistryStats } from '@dtsl/rtk-query/react';
+import { getRegistryStats } from 'federated-query/react';
 
 const stats = getRegistryStats();
 
@@ -1240,7 +1240,7 @@ invalidatesTags: [{ type: 'User', id: 'LIST' }]
 
 ```typescript
 // app-init.ts or store setup - configure ONCE at startup
-import { urlInvalidationManager } from '@dtsl/rtk-query';
+import { urlInvalidationManager } from 'federated-query';
 
 // User changes affect orders (e.g., user name shown in orders)
 urlInvalidationManager.invalidateOn('/users/*', ['/orders', '/orders/*']);
@@ -1260,7 +1260,7 @@ urlInvalidationManager.invalidateOn('/products/*', ['/inventory/*'], ['DELETE'])
 
 ## Performance
 
-| Metric | Without @dtsl/rtk-query | With @dtsl/rtk-query |
+| Metric | Without federated-query | With federated-query |
 |--------|------------------------|---------------------|
 | Duplicate Requests | 3 per endpoint | 1 (coalesced) |
 | Network Bandwidth | 100% | ~33% (67% saved) |

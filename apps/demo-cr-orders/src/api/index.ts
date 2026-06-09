@@ -6,7 +6,7 @@
  * configured a cross-resource rule pointing to /api/v1/orders.
  */
 
-import { createApi, fetchBaseQuery } from '@dtsl/rtk-query/react';
+import { createApi, fetchBaseQuery } from 'federated-query/react';
 
 export interface Order {
   id: number;

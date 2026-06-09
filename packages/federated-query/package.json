@@ -1,9 +1,15 @@
 {
-  "name": "@dtsl/rtk-query",
+  "name": "federated-query",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "RTK Query wrapper with transparent MFE support",
+  "description": "Drop-in replacement for RTK Query with transparent Micro-Frontend (MFE) support",
+  "keywords": ["rtk-query", "redux", "micro-frontend", "mfe", "module-federation", "cache", "invalidation"],
+  "license": "MIT",
+  "author": "Esan Mohammad",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/esanmohammad/federated-query"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -18,7 +24,9 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc && vite build",

@@ -12,7 +12,7 @@
  */
 
 import React, { Suspense } from 'react';
-import { Provider } from '@dtsl/rtk-query/react';
+import { Provider } from 'federated-query/react';
 import { store } from './store';
 import { useTransferAccountMutation } from './api';
 

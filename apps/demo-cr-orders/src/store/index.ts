@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { setupListeners } from '@dtsl/rtk-query/react';
+import { setupListeners } from 'federated-query/react';
 import { api } from '../api';
 
 export const store = configureStore({

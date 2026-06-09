@@ -11,7 +11,7 @@
     "lint": "eslint . --ext ts,tsx"
   },
   "dependencies": {
-    "@dtsl/rtk-query": "*",
+    "federated-query": "*",
     "@reduxjs/toolkit": "^2.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -9,7 +9,7 @@
  * the orders in the right app — even though they are separate bundles
  * with separate Redux stores.
  *
- * How? @dtsl/rtk-query's global registry (window.__DTSL_RTK_QUERY_REGISTRY__)
+ * How? federated-query's global registry (window.__FEDERATED_QUERY_REGISTRY__)
  * makes both apps share one store when they use the same reducerPath.
  * The cross-resource rule in mfe-cr-users fires the middleware that
  * invalidates mfe-cr-orders' getOrders query.

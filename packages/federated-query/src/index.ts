@@ -1,5 +1,5 @@
 /**
- * @dtsl/rtk-query
+ * federated-query
  *
  * RTK Query wrapper with transparent MFE (micro-frontend) support.
  *
@@ -12,8 +12,8 @@
  * // Before (standard RTK Query)
  * import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
  *
- * // After (@dtsl/rtk-query - same API!)
- * import { createApi, fetchBaseQuery } from '@dtsl/rtk-query';
+ * // After (federated-query - same API!)
+ * import { createApi, fetchBaseQuery } from 'federated-query';
  *
  * export const api = createApi({
  *   reducerPath: 'api',

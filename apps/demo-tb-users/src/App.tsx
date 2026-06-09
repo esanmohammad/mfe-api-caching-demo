@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Provider } from '@dtsl/rtk-query/react';
+import { Provider } from 'federated-query/react';
 import { store } from './store';
 import { useGetUsersQuery, useRenameUserMutation, User } from './api';
 

@@ -144,7 +144,7 @@ export function createUrlInvalidationMiddleware(
     const api = getRegisteredApi(reducerPath);
     if (!api) {
       console.warn(
-        `[@dtsl/rtk-query] Cannot find registered API for ${reducerPath}, skipping URL invalidation`,
+        `[federated-query] Cannot find registered API for ${reducerPath}, skipping URL invalidation`,
       );
       return result;
     }
@@ -172,7 +172,7 @@ export function createUrlInvalidationMiddleware(
     }
 
     console.debug(
-      `[@dtsl/rtk-query] Auto-invalidating ${queriesToRefetch.length} queries after ${method} ${url}`,
+      `[federated-query] Auto-invalidating ${queriesToRefetch.length} queries after ${method} ${url}`,
     );
 
     // Trigger refetch for each invalidated query using RTK Query's initiate
@@ -190,7 +190,7 @@ export function createUrlInvalidationMiddleware(
           }),
         );
         console.debug(
-          `[@dtsl/rtk-query] Refetching ${query.endpointName} (${query.cacheKey})`,
+          `[federated-query] Refetching ${query.endpointName} (${query.cacheKey})`,
         );
       }
     }

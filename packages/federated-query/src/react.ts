@@ -1,14 +1,14 @@
 /**
- * @dtsl/rtk-query/react
+ * federated-query/react
  *
- * React-specific exports for @dtsl/rtk-query.
+ * React-specific exports for federated-query.
  *
  * This module provides the Provider component and re-exports
  * all React hooks from RTK Query.
  *
  * @example
  * ```typescript
- * import { Provider } from '@dtsl/rtk-query/react';
+ * import { Provider } from 'federated-query/react';
  * import { store } from './store';
  *
  * function App() {
