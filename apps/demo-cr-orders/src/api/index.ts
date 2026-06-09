@@ -24,6 +24,7 @@ export interface PaginatedResponse<T> {
 export const api = createApi({
   // Same reducerPath → shares the global registry store with Users MFE
   reducerPath: 'crossResourceApi',
+  mfeOptions: { mfeName: 'mfe-cr-orders' },
   baseQuery: fetchBaseQuery({ baseUrl: 'http://localhost:4000/api' }),
   endpoints: (builder) => ({
     getOrders: builder.query<PaginatedResponse<Order>, void>({

@@ -21,6 +21,7 @@ export interface ItemsResponse {
 export const api = createApi({
   // IMPORTANT: Same reducerPath across all MFEs enables cache sharing
   reducerPath: "demoApi",
+  mfeOptions: { mfeName: "demo-list-delete" },
   baseQuery: fetchBaseQuery({ baseUrl: "http://localhost:4000/api" }),
   tagTypes: ["Item", "ItemStats"],
   endpoints: (builder) => ({

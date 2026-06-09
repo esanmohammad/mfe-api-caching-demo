@@ -21,7 +21,7 @@ export interface User {
 export const api = createApi({
   reducerPath: 'tagDemoApi',
   baseQuery: fetchBaseQuery({ baseUrl: 'http://localhost:4000/api' }),
-  mfeOptions: { enableUrlInvalidation: false },
+  mfeOptions: { enableUrlInvalidation: false, mfeName: 'demo-host' },
   tagTypes: ['User', 'Order'],
   endpoints: (builder) => ({
     transferAccount: builder.mutation<User, { id: number; name: string }>({

@@ -33,6 +33,7 @@ export interface PaginatedResponse<T> {
 
 export const api = createApi({
   reducerPath: "crossResourceApi",
+  mfeOptions: { mfeName: "mfe-cr-users" },
   baseQuery: fetchBaseQuery({ baseUrl: "http://localhost:4000/api" }),
   endpoints: (builder) => ({
     getUsers: builder.query<PaginatedResponse<User>, void>({

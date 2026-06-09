@@ -22,7 +22,7 @@ export interface PaginatedResponse<T> {
 export const api = createApi({
   reducerPath: 'tagDemoApi',
   baseQuery: fetchBaseQuery({ baseUrl: 'http://localhost:4000/api' }),
-  mfeOptions: { enableUrlInvalidation: false },
+  mfeOptions: { enableUrlInvalidation: false, mfeName: 'mfe-tb-users' },
   tagTypes: ['User', 'Order'],
   endpoints: (builder) => ({
     getUsers: builder.query<PaginatedResponse<User>, void>({

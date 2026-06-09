@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Provider } from 'federated-query/react';
-import { store } from './store';
 import { useGetUsersQuery, useUpdateUserMutation, User } from './api';
 
 function UsersContent() {
@@ -83,7 +82,7 @@ function UsersContent() {
 
 function App() {
   return (
-    <Provider store={store} mfeName="mfe-cr-users">
+    <Provider mfeName="mfe-cr-users">
       <UsersContent />
     </Provider>
   );

@@ -9,14 +9,13 @@
 
 import { useState } from 'react';
 import { Provider } from 'federated-query/react';
-import { store } from './store';
 import { useGetItemsQuery, useAddItemMutation, Item } from './api';
 
 const MFE_NAME = 'demo-list-add';
 
 function App() {
   return (
-    <Provider store={store} mfeName={MFE_NAME}>
+    <Provider mfeName={MFE_NAME}>
       <ListContent />
     </Provider>
   );

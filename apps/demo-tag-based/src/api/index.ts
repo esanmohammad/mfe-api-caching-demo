@@ -24,7 +24,7 @@ export interface User {
 export const api = createApi({
   reducerPath: 'tagDemoApi',
   baseQuery: fetchBaseQuery({ baseUrl: 'http://localhost:4000/api' }),
-  mfeOptions: { enableUrlInvalidation: false },
+  mfeOptions: { enableUrlInvalidation: false, mfeName: 'demo-tag-based-host' },
   tagTypes: ['User', 'Order'],
   endpoints: (builder) => ({
     // Invalidates BOTH tags → both sub-MFE apps refresh

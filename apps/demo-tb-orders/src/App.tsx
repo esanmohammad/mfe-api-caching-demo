@@ -1,5 +1,4 @@
 import { Provider } from 'federated-query/react';
-import { store } from './store';
 import { useGetOrdersQuery, useCreateOrderMutation, Order } from './api';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -69,7 +68,7 @@ function OrdersContent() {
 
 function App() {
   return (
-    <Provider store={store} mfeName="mfe-tb-orders">
+    <Provider mfeName="mfe-tb-orders">
       <OrdersContent />
     </Provider>
   );

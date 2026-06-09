@@ -26,6 +26,7 @@ export interface UpdateItemRequest {
 export const api = createApi({
   // IMPORTANT: Same reducerPath across all MFEs enables cache sharing
   reducerPath: "demoApi",
+  mfeOptions: { mfeName: "demo-list-update" },
   baseQuery: fetchBaseQuery({ baseUrl: "http://localhost:4000/api" }),
   tagTypes: ["Item", "ItemStats"],
   endpoints: (builder) => ({

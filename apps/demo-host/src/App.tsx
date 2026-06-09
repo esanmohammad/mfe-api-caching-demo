@@ -5,7 +5,6 @@
 
 import React, { Suspense } from "react";
 import { Provider } from "federated-query/react";
-import { store } from "./store";
 import { useTransferAccountMutation } from "./api";
 
 const DemoListDelete = React.lazy(() => import("demoListDelete/App"));
@@ -82,7 +81,7 @@ function DoBothButton() {
 
 function App() {
   return (
-    <Provider store={store} mfeName="demo-host">
+    <Provider mfeName="demo-host">
       <div className="min-h-screen bg-gray-100">
         <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg">
           <div className="max-w-7xl mx-auto px-4 py-6">
